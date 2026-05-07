@@ -280,15 +280,15 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
   <div id="tab-facility" style="display:none">
     <div class="fac-section">
       <div class="fac-title" style="color:#2E8B57;">♿ 장애인 편의시설 (B4O1)</div>
-      <div class="fac-card" onclick="focusMarker(0)"><div><div class="fac-name">장애인복지관 A</div><div class="fac-type">복지관</div></div><div class="fac-badges"><span class="op-badge">운영 중</span><span class="acc-badge">♿ 접근 가능</span></div></div>
-      <div class="fac-card" onclick="focusMarker(1)"><div><div class="fac-name">장애인 편의시설 B</div><div class="fac-type">편의시설</div></div><div class="fac-badges"><span class="op-badge">운영 중</span><span class="acc-badge">♿ 접근 가능</span></div></div>
-      <div class="fac-card" onclick="focusMarker(2)"><div><div class="fac-name">장애인주차장 C</div><div class="fac-type">주차장</div></div><div class="fac-badges"><span class="op-badge">운영 중</span></div></div>
+      <div class="fac-card" onclick="focusMarker(0)"><div><div class="fac-name">♿ 장애인복지관 A</div><div class="fac-type">복지관</div></div><div class="fac-badges"><span class="op-badge">운영 중</span><span class="acc-badge">♿ 접근 가능</span></div></div>
+      <div class="fac-card" onclick="focusMarker(1)"><div><div class="fac-name">🅿 장애인 편의시설 B</div><div class="fac-type">편의시설</div></div><div class="fac-badges"><span class="op-badge">운영 중</span><span class="acc-badge">♿ 접근 가능</span></div></div>
+      <div class="fac-card" onclick="focusMarker(2)"><div><div class="fac-name">🚗 장애인주차장 C</div><div class="fac-type">주차장</div></div><div class="fac-badges"><span class="op-badge">운영 중</span></div></div>
     </div>
     <div class="fac-section">
-      <div class="fac-title" style="color:#7B5EA7;">🧓 노인복지시설 (B428)</div>
-      <div class="fac-card" onclick="focusMarker(3)"><div><div class="fac-name">노인복지관 가</div><div class="fac-type">복지관</div></div><div class="fac-badges"><span class="op-badge">운영 중</span></div></div>
-      <div class="fac-card" onclick="focusMarker(4)"><div><div class="fac-name">요양원 나</div><div class="fac-type">요양원</div></div><div class="fac-badges"><span class="op-badge">운영 중</span></div></div>
-      <div class="fac-card" onclick="focusMarker(5)"><div><div class="fac-name">경로당 다</div><div class="fac-type">경로당</div></div><div class="fac-badges"><span class="op-badge">운영 중</span></div></div>
+      <div class="fac-title" style="color:#7B5EA7;">🏠 노인복지시설 (B428)</div>
+      <div class="fac-card" onclick="focusMarker(3)"><div><div class="fac-name">🏠 노인복지관 가</div><div class="fac-type">복지관</div></div><div class="fac-badges"><span class="op-badge">운영 중</span></div></div>
+      <div class="fac-card" onclick="focusMarker(4)"><div><div class="fac-name">🏥 요양원 나</div><div class="fac-type">요양원</div></div><div class="fac-badges"><span class="op-badge">운영 중</span></div></div>
+      <div class="fac-card" onclick="focusMarker(5)"><div><div class="fac-name">☕ 경로당 다</div><div class="fac-type">경로당</div></div><div class="fac-badges"><span class="op-badge">운영 중</span></div></div>
     </div>
     <div class="ai-tip">
       <div class="ai-tip-title">💡 걱정마路 AI 대피 조언</div>
@@ -299,12 +299,12 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
 
 <script>
 const facilities=[
-  {lat:37.5620,lng:126.9840,name:"장애인복지관 A",  type:"disability",label:"♿",accessible:true},
-  {lat:37.5585,lng:126.9910,name:"장애인 편의시설 B",type:"disability",label:"♿",accessible:true},
-  {lat:37.5650,lng:126.9780,name:"장애인주차장 C",  type:"disability",label:"♿",accessible:false},
-  {lat:37.5600,lng:126.9870,name:"노인복지관 가",   type:"elderly",   label:"🧓",accessible:true},
-  {lat:37.5560,lng:126.9820,name:"요양원 나",       type:"elderly",   label:"🧓",accessible:true},
-  {lat:37.5630,lng:126.9940,name:"경로당 다",       type:"elderly",   label:"🧓",accessible:false},
+  {lat:37.5620,lng:126.9840,name:"장애인복지관 A",  type:"disability", subtype:"복지관", label:"♿",color:"#2E8B57",accessible:true},
+  {lat:37.5585,lng:126.9910,name:"장애인 편의시설 B",type:"disability", subtype:"편의시설",label:"🅿",color:"#1976A8",accessible:true},
+  {lat:37.5650,lng:126.9780,name:"장애인주차장 C",  type:"disability", subtype:"주차장", label:"🚗",color:"#5C7A3E",accessible:false},
+  {lat:37.5600,lng:126.9870,name:"노인복지관 가",   type:"elderly",    subtype:"복지관", label:"🏠",color:"#7B5EA7",accessible:true},
+  {lat:37.5560,lng:126.9820,name:"요양원 나",       type:"elderly",    subtype:"요양원", label:"🏥",color:"#C0622A",accessible:true},
+  {lat:37.5630,lng:126.9940,name:"경로당 다",       type:"elderly",    subtype:"경로당", label:"☕",color:"#A0775A",accessible:false},
 ];
 const roads=[{name:"세종대로",congestion:85},{name:"을지로",congestion:42},{name:"퇴계로",congestion:67},{name:"남대문로",congestion:28},{name:"충무로",congestion:55}];
 const presets=[
@@ -400,7 +400,7 @@ function findRoute(){
     return{...f,dRoute,dOrigin};
   }).filter(f=>f.dRoute<0.006).sort((a,b)=>a.dOrigin-b.dOrigin);
   nearby.forEach(f=>{
-    const color=f.type==='disability'?'#2E8B57':'#7B5EA7';
+    const color=f.color;
     const svg=`<svg xmlns='http://www.w3.org/2000/svg' width='40' height='48'><circle cx='20' cy='20' r='18' fill='${color}'/><circle cx='20' cy='20' r='18' fill='none' stroke='white' stroke-width='2'/><text x='20' y='15' text-anchor='middle' font-size='9' fill='white' font-weight='bold'>대피</text><text x='20' y='28' text-anchor='middle' font-size='14'>${f.label}</text><polygon points='14,36 26,36 20,48' fill='${color}'/></svg>`;
     const m=new kakao.maps.Marker({position:new kakao.maps.LatLng(f.lat,f.lng),image:new kakao.maps.MarkerImage('data:image/svg+xml;base64,'+btoa(unescape(encodeURIComponent(svg))),new kakao.maps.Size(40,48),{offset:new kakao.maps.Point(20,48)}),title:f.name});
     m.setMap(map);
@@ -448,14 +448,14 @@ function renderShelterResult(nearby,origin,dest){
   } else {
     const rankColor=['#D4A017','#9E9E9E','#A0522D'];
     document.getElementById('shelter-list').innerHTML=nearby.map((f,i)=>{
-      const color=f.type==='disability'?'#2E8B57':'#7B5EA7';
+      const color=f.color;
       const rc=rankColor[i]||'#B0C4C4';
       const dm=Math.round(f.dOrigin);
       return `<div class="shelter-card ${i===0?'top':''}" onclick="jumpTo(${f.lat},${f.lng})">
         <div class="s-rank" style="background:${rc}22;border:2px solid ${rc};color:${rc};">${i+1}</div>
         <div class="s-info">
           <div class="s-name">${f.label} ${f.name}</div>
-          <div class="s-type">${f.type==='disability'?'장애인 편의시설':'노인복지시설'} · ${f.accessible?'♿ 접근 가능':'일반 접근'}</div>
+          <div class="s-type">${f.subtype} · ${f.accessible?'♿ 접근 가능':'일반 접근'}</div>
           ${i===0?'<div class="s-best">🏆 가장 가까운 대피소</div>':''}
         </div>
         <div class="s-dist" style="color:${color};">${dm<1000?dm+'m':(dm/1000).toFixed(1)+'km'}</div>
@@ -483,7 +483,7 @@ function addPresetEndpoints(){
 function addFacMarkers(){
   fMarkers.forEach(m=>m.setMap(null)); fMarkers=[];
   facilities.forEach((f,i)=>{
-    const color=f.type==='disability'?'#2E8B57':'#7B5EA7';
+    const color=f.color;
     const svg=`<svg xmlns='http://www.w3.org/2000/svg' width='36' height='42'><circle cx='18' cy='18' r='16' fill='${color}'/><circle cx='18' cy='18' r='16' fill='none' stroke='white' stroke-width='2'/><text x='18' y='23' text-anchor='middle' font-size='14'>${f.label}</text><polygon points='13,32 23,32 18,42' fill='${color}'/></svg>`;
     const m=new kakao.maps.Marker({position:new kakao.maps.LatLng(f.lat,f.lng),image:new kakao.maps.MarkerImage('data:image/svg+xml;base64,'+btoa(unescape(encodeURIComponent(svg))),new kakao.maps.Size(36,42),{offset:new kakao.maps.Point(18,42)}),title:f.name});
     m.setMap(map);
