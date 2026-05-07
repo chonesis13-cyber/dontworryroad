@@ -471,11 +471,15 @@ let originPlace=null,destPlace=null;
 let timers={};
 
 window.addEventListener('load',()=>{
-  map=new kakao.maps.Map(document.getElementById('map'),{center:new kakao.maps.LatLng(37.5610,126.9825),level:4});
+  const mapEl = document.getElementById('map');
+  map=new kakao.maps.Map(mapEl,{center:new kakao.maps.LatLng(37.5610,126.9825),level:4});
   ps=new kakao.maps.services.Places();
   geocoder=new kakao.maps.services.Geocoder();
   drawPresets(); addPresetEndpoints(); buildRoadBars();
-  loadAllFacilities(); // 지하철 + 학교 병렬 로드
+  loadAllFacilities();
+  // 빈 공간 제거 — 렌더링 완료 후 강제 relayout
+  setTimeout(()=>{ map.relayout(); kakao.maps.event.trigger(map,'resize'); }, 100);
+  setTimeout(()=>{ map.relayout(); kakao.maps.event.trigger(map,'resize'); }, 500);
 });
 
 function onSearch(type){
@@ -684,7 +688,7 @@ function setMapHeight(h,animate=true){
   h=Math.max(MAP_MIN,Math.min(MAP_MAX,h));
   mapEl.style.transition=animate?'height .3s':'none';
   mapEl.style.height=h+'px';
-  kakao.maps.event.trigger(map,'resize');
+  setTimeout(()=>{ map.relayout(); kakao.maps.event.trigger(map,'resize'); }, animate?320:50);
   mapCollapsed=(h<=MAP_MIN+10);
   document.getElementById('map-toggle-icon').textContent=mapCollapsed?'▼':'▲';
 }
@@ -701,7 +705,7 @@ function toggleMap(){
   let dragging=false,startY=0,startH=0;
   const onStart=(e)=>{dragging=true;startY=e.touches?e.touches[0].clientY:e.clientY;startH=mapEl.offsetHeight;mapEl.style.transition='none';document.body.style.userSelect='none';};
   const onMove=(e)=>{if(!dragging)return;const y=e.touches?e.touches[0].clientY:e.clientY;const newH=Math.max(MAP_MIN,Math.min(MAP_MAX,startH+(y-startY)));mapEl.style.height=newH+'px';kakao.maps.event.trigger(map,'resize');};
-  const onEnd=()=>{if(!dragging)return;dragging=false;document.body.style.userSelect='';const cur=mapEl.offsetHeight;mapCollapsed=(cur<=MAP_MIN+10);document.getElementById('map-toggle-icon').textContent=mapCollapsed?'▼':'▲';if(!mapCollapsed)mapHeightBeforeCollapse=cur;};
+  const onEnd=()=>{if(!dragging)return;dragging=false;document.body.style.userSelect='';const cur=mapEl.offsetHeight;mapCollapsed=(cur<=MAP_MIN+10);document.getElementById('map-toggle-icon').textContent=mapCollapsed?'▼':'▲';if(!mapCollapsed)mapHeightBeforeCollapse=cur;map.relayout();kakao.maps.event.trigger(map,'resize');};
   handle.addEventListener('mousedown',onStart);
   handle.addEventListener('touchstart',onStart,{passive:true});
   document.addEventListener('mousemove',onMove);
