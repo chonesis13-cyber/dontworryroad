@@ -1,100 +1,154 @@
-
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>걱정마路 — 교통약자 안전 대피 경로</title>
 <script src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=d2ce7472d34a3d04bf090f9a9fd3ad9b&libraries=services,clusterer"></script>
-<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;600;700;900&family=Noto+Serif+KR:wght@700;900&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;600;700;900&family=Noto+Serif+KR:wght@700;900&display=swap" rel="stylesheet"/>
 <style>
-  :root {
-    --bg: #0A0F1E; --panel: #111827; --border: #1E293B;
-    --accent: #00D4FF; --warn: #FF6B35; --safe: #00FF94;
-    --purple: #A78BFA; --text: #E2E8F0; --dim: #94A3B8; --muted: #4B5563;
-  }
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { background: var(--bg); color: var(--text); font-family: 'Noto Sans KR', sans-serif; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
-  #header { background: linear-gradient(180deg, #0D1426 0%, #0A0F1E 100%); border-bottom: 1px solid var(--border); padding: 12px 16px 0; flex-shrink: 0; z-index: 10; }
-  .header-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
-  .logo { font-size: 20px; font-weight: 900; letter-spacing: -0.04em; background: linear-gradient(135deg, var(--accent), #7C3AED); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-  .live-badge { display: flex; align-items: center; gap: 6px; font-size: 10px; color: var(--safe); font-weight: 600; letter-spacing: 0.1em; }
-  .live-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--safe); box-shadow: 0 0 8px var(--safe); animation: blink 2s infinite; }
-  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
-  .rain-badge { display: flex; align-items: center; gap: 6px; background: #FF6B3522; border: 1px solid #FF6B3555; border-radius: 20px; padding: 4px 10px; font-size: 11px; color: var(--warn); font-weight: 700; }
-  .tabs { display: flex; gap: 3px; margin-top: 8px; }
-  .tab { flex: 1; padding: 8px 4px; background: none; border: 1px solid transparent; border-bottom: none; border-radius: 8px 8px 0 0; color: var(--dim); font-size: 11px; font-weight: 600; cursor: pointer; font-family: inherit; transition: all 0.2s; }
-  .tab.active { background: #00D4FF18; border-color: var(--accent); color: var(--accent); }
-  #map { width: 100%; flex-shrink: 0; border-bottom: 1px solid var(--border); transition: height 0.3s; }
-  #panel { flex: 1; overflow-y: auto; padding: 14px 16px 20px; background: var(--bg); }
-  #panel::-webkit-scrollbar { width: 3px; }
-  #panel::-webkit-scrollbar-thumb { background: var(--border); border-radius: 99px; }
-  .section-label { font-size: 10px; color: var(--dim); letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 10px; margin-top: 4px; }
-  .route-card { background: var(--panel); border: 1.5px solid var(--border); border-radius: 14px; padding: 13px 14px; margin-bottom: 9px; cursor: pointer; transition: all 0.2s; }
-  .route-card.selected { border-color: var(--card-color); background: color-mix(in srgb, var(--card-color) 8%, var(--panel)); }
-  .route-card:hover { border-color: var(--card-color); }
-  .route-header { display: flex; justify-content: space-between; align-items: flex-start; }
-  .route-name { font-size: 13px; font-weight: 700; }
-  .route-sub { font-size: 11px; color: var(--dim); margin-top: 2px; }
-  .score-badge { background: color-mix(in srgb, var(--card-color) 20%, transparent); border: 1px solid color-mix(in srgb, var(--card-color) 50%, transparent); border-radius: 20px; padding: 3px 10px; font-size: 12px; font-weight: 800; color: var(--card-color); }
-  .route-meta { display: flex; gap: 14px; margin-top: 9px; }
-  .route-meta span { font-size: 11px; color: var(--dim); }
-  .risk-tag { font-weight: 700 !important; }
-  .route-features { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 9px; }
-  .feature-tag { background: color-mix(in srgb, var(--card-color) 15%, transparent); border: 1px solid color-mix(in srgb, var(--card-color) 30%, transparent); border-radius: 20px; padding: 2px 9px; font-size: 10px; color: var(--card-color); }
-  .cta-btn { width: 100%; background: linear-gradient(135deg, var(--accent), #0EA5E9); border: none; border-radius: 14px; padding: 15px; color: #000; font-size: 14px; font-weight: 900; cursor: pointer; font-family: inherit; margin-top: 4px; box-shadow: 0 4px 24px #00D4FF33; letter-spacing: -0.02em; transition: transform 0.15s, box-shadow 0.15s; }
-  .cta-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 30px #00D4FF55; }
-  .cta-btn:active { transform: translateY(0); }
-  .data-grid { display: flex; gap: 10px; margin-bottom: 10px; }
-  .data-card { flex: 1; background: var(--panel); border: 1px solid var(--dc-color, var(--border)); border-radius: 12px; padding: 13px 14px; box-shadow: 0 0 16px var(--dc-glow, transparent); }
-  .data-card-label { font-size: 9px; color: var(--dim); letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 5px; }
-  .data-card-icon { font-size: 16px; margin-bottom: 4px; }
-  .data-card-val { font-size: 20px; font-weight: 800; color: var(--dc-color); }
-  .data-card-sub { font-size: 10px; color: var(--dim); margin-top: 2px; }
-  .road-block { background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 14px; margin-bottom: 12px; }
-  .road-title { font-size: 12px; font-weight: 700; margin-bottom: 11px; }
-  .road-row { margin-bottom: 9px; }
-  .road-row-top { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 4px; }
-  .road-bar-bg { height: 5px; background: var(--border); border-radius: 99px; overflow: hidden; }
-  .road-bar { height: 100%; border-radius: 99px; transition: width 1.2s ease; }
-  .rainfall-block { background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 14px; display: flex; align-items: center; gap: 14px; }
-  .rf-gauge { position: relative; width: 56px; height: 56px; flex-shrink: 0; }
-  .rf-gauge svg { position: absolute; inset: 0; }
-  .rf-val { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 800; }
-  .rf-label { font-size: 13px; font-weight: 700; }
-  .rf-sub { font-size: 11px; color: var(--dim); margin-top: 3px; }
-  .rf-tag { display: inline-block; background: #FF6B3522; border: 1px solid #FF6B3555; border-radius: 20px; padding: 3px 10px; font-size: 10px; color: var(--warn); font-weight: 700; margin-top: 6px; }
-  .fac-section { margin-bottom: 16px; }
-  .fac-title { font-size: 12px; font-weight: 700; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
-  .fac-card { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 11px 13px; margin-bottom: 7px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; transition: border-color 0.2s; }
-  .fac-card:hover { border-color: var(--accent); }
-  .fac-name { font-size: 13px; font-weight: 600; }
-  .fac-type { font-size: 11px; color: var(--dim); margin-top: 2px; }
-  .fac-badges { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
-  .op-badge { background: #00FF9422; border: 1px solid #00FF9444; border-radius: 20px; padding: 2px 9px; font-size: 10px; color: var(--safe); font-weight: 600; }
-  .acc-badge { font-size: 10px; color: var(--safe); }
-  .ai-tip { background: #00D4FF11; border: 1px solid #00D4FF33; border-radius: 12px; padding: 12px 14px; }
-  .ai-tip-title { font-size: 12px; font-weight: 700; color: var(--accent); margin-bottom: 5px; }
-  .ai-tip-body { font-size: 11px; color: var(--dim); line-height: 1.65; }
-  .ai-tip-body strong { color: var(--safe); }
-  #alert-banner { background: #FF6B3518; border: 1px solid #FF6B3555; border-radius: 10px; padding: 9px 13px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; }
-  .alert-text { font-size: 11px; color: var(--warn); font-weight: 600; }
-  .alert-close { background: none; border: none; color: var(--muted); font-size: 18px; cursor: pointer; line-height: 1; }
-  /* 현재위치 버튼 */
-  #loc-btn { position: absolute; top: 10px; right: 10px; z-index: 5; width: 42px; height: 42px; border-radius: 50%; background: rgba(10,15,30,0.92); border: 1.5px solid var(--accent); color: var(--accent); font-size: 18px; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 14px #00D4FF44; transition: background 0.2s, transform 0.2s; backdrop-filter: blur(6px); }
-  #loc-btn:hover { background: #00D4FF22; transform: scale(1.08); }
-  #loc-btn.loading { border-color: var(--warn); color: var(--warn); }
-  #loc-btn.loading span { display: inline-block; animation: spin 1s linear infinite; }
-  @keyframes spin { to { transform: rotate(360deg); } }
-  #loc-bar { display: none; background: #00D4FF11; border: 1px solid #00D4FF33; border-radius: 10px; padding: 8px 13px; margin-bottom: 10px; align-items: center; gap: 10px; }
-  #loc-bar.visible { display: flex; }
-  #loc-bar-text { font-size: 11px; color: var(--dim); flex: 1; line-height: 1.5; }
-  #loc-bar-text strong { color: var(--accent); font-size: 12px; }
-  #loc-bar-close { background: none; border: none; color: var(--muted); font-size: 16px; cursor: pointer; }
-  .map-wrap { position: relative; }
-  .map-legend { position: absolute; bottom: 10px; left: 10px; z-index: 5; background: rgba(10,15,30,0.88); border: 1px solid var(--border); border-radius: 10px; padding: 8px 12px; display: flex; gap: 12px; backdrop-filter: blur(6px); }
-  .legend-item { display: flex; align-items: center; gap: 5px; font-size: 10px; color: var(--dim); }
-  .legend-line { width: 18px; height: 3px; border-radius: 99px; }
+:root{
+  --bg:#FDF5E6;
+  --panel:#FFFAF2;
+  --border:#E8D9C0;
+  --accent:#FF8C00;
+  --accent2:#E67A00;
+  --safe:#2E8B57;
+  --safe2:#246B44;
+  --warn:#CC3300;
+  --text:#2F4F4F;
+  --dim:#7A9090;
+  --muted:#B0C4C4;
+  --white:#FFFFFF;
+  --shadow:rgba(47,79,79,0.10);
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-serif;height:100vh;display:flex;flex-direction:column;overflow:hidden;}
+
+/* HEADER */
+#header{background:var(--safe);padding:12px 16px 0;flex-shrink:0;z-index:20;box-shadow:0 2px 8px var(--shadow);}
+.header-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;}
+.logo{font-size:22px;font-weight:900;letter-spacing:-0.03em;color:#FFFFFF;}
+.live-badge{display:flex;align-items:center;gap:6px;font-size:10px;color:#A8F0C6;font-weight:600;letter-spacing:.08em;}
+.live-dot{width:7px;height:7px;border-radius:50%;background:#A8F0C6;box-shadow:0 0 6px #A8F0C6;animation:blink 2s infinite;}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+.rain-badge{display:flex;align-items:center;gap:6px;background:#CC330022;border:1.5px solid #CC330066;border-radius:20px;padding:5px 12px;font-size:12px;color:#FFD0C0;font-weight:700;}
+.tabs{display:flex;gap:2px;margin-top:8px;}
+.tab{flex:1;padding:9px 4px;background:rgba(255,255,255,0.15);border:none;border-radius:8px 8px 0 0;color:rgba(255,255,255,0.7);font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;transition:all .2s;}
+.tab.active{background:var(--bg);color:var(--safe);font-weight:900;}
+
+/* 검색 */
+#search-box{background:var(--panel);border-bottom:2px solid var(--border);padding:10px 16px;flex-shrink:0;z-index:15;box-shadow:0 2px 4px var(--shadow);}
+.search-row{display:flex;align-items:center;gap:8px;margin-bottom:7px;}
+.search-row:last-child{margin-bottom:0;}
+.search-dot{width:12px;height:12px;border-radius:50%;flex-shrink:0;}
+.search-input-wrap{flex:1;position:relative;}
+.search-input{width:100%;background:var(--white);border:2px solid var(--border);border-radius:12px;padding:10px 34px 10px 14px;color:var(--text);font-size:14px;font-family:inherit;outline:none;transition:border-color .2s;box-shadow:0 1px 4px var(--shadow);}
+.search-input:focus{border-color:var(--accent);}
+.search-input::placeholder{color:var(--muted);}
+.search-clear{position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--muted);font-size:18px;cursor:pointer;display:none;line-height:1;}
+.suggestions{position:absolute;top:calc(100% + 4px);left:0;right:0;background:var(--white);border:2px solid var(--border);border-radius:12px;z-index:200;overflow:hidden;box-shadow:0 8px 24px var(--shadow);display:none;}
+.sugg-item{padding:11px 14px;font-size:13px;cursor:pointer;border-bottom:1px solid var(--border);transition:background .15s;}
+.sugg-item:last-child{border-bottom:none;}
+.sugg-item:hover{background:#FFF3E0;}
+.sugg-name{font-weight:700;color:var(--text);}
+.sugg-addr{font-size:11px;color:var(--dim);margin-top:2px;}
+.go-btn{background:var(--accent);border:none;border-radius:12px;padding:10px 16px;color:var(--white);font-size:13px;font-weight:900;cursor:pointer;font-family:inherit;white-space:nowrap;flex-shrink:0;transition:background .15s,transform .1s;box-shadow:0 2px 8px rgba(255,140,0,.35);}
+.go-btn:hover{background:var(--accent2);transform:scale(1.04);}
+.go-btn:disabled{background:var(--muted);cursor:not-allowed;transform:none;box-shadow:none;}
+
+/* 지도 */
+.map-wrap{position:relative;}
+#map{width:100%;flex-shrink:0;border-bottom:2px solid var(--border);transition:height .3s;}
+#loc-btn{position:absolute;top:10px;right:10px;z-index:5;width:44px;height:44px;border-radius:50%;background:var(--white);border:2px solid var(--accent);color:var(--accent);font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 10px var(--shadow);transition:background .2s,transform .2s;}
+#loc-btn:hover{background:#FFF3E0;transform:scale(1.08);}
+#loc-btn.loading span{animation:spin 1s linear infinite;display:inline-block;}
+@keyframes spin{to{transform:rotate(360deg)}}
+.map-legend{position:absolute;bottom:10px;left:10px;z-index:5;background:rgba(255,245,230,.92);border:1.5px solid var(--border);border-radius:10px;padding:7px 12px;display:flex;gap:10px;flex-wrap:wrap;}
+.legend-item{display:flex;align-items:center;gap:4px;font-size:11px;color:var(--dim);font-weight:600;}
+.legend-line{width:18px;height:3px;border-radius:99px;}
+
+/* 패널 */
+#panel{flex:1;overflow-y:auto;padding:14px 16px 20px;background:var(--bg);}
+#panel::-webkit-scrollbar{width:4px;}
+#panel::-webkit-scrollbar-thumb{background:var(--border);border-radius:99px;}
+.section-label{font-size:11px;color:var(--dim);letter-spacing:.08em;text-transform:uppercase;margin-bottom:10px;margin-top:4px;font-weight:600;}
+
+/* 대피장소 결과 */
+#shelter-result{display:none;margin-bottom:14px;}
+#shelter-result.visible{display:block;}
+.route-info-card{background:var(--white);border:2px solid var(--safe);border-radius:14px;padding:14px;margin-bottom:12px;box-shadow:0 2px 8px var(--shadow);}
+.shelter-header{display:flex;align-items:center;gap:8px;margin-bottom:10px;}
+.shelter-title{font-size:14px;font-weight:800;color:var(--safe);}
+.shelter-count{background:#2E8B5722;border:1.5px solid #2E8B5777;border-radius:20px;padding:3px 10px;font-size:12px;color:var(--safe);font-weight:700;}
+.shelter-card{background:var(--white);border:2px solid var(--border);border-radius:14px;padding:13px 14px;margin-bottom:9px;display:flex;align-items:center;gap:12px;cursor:pointer;transition:border-color .2s,box-shadow .2s;box-shadow:0 1px 4px var(--shadow);}
+.shelter-card:hover{border-color:var(--safe);box-shadow:0 3px 12px var(--shadow);}
+.shelter-card.top{border-color:var(--safe);background:#F0FFF6;}
+.s-rank{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:900;flex-shrink:0;}
+.s-info{flex:1;}
+.s-name{font-size:14px;font-weight:700;color:var(--text);}
+.s-type{font-size:11px;color:var(--dim);margin-top:2px;}
+.s-best{display:inline-block;background:#2E8B5722;border:1px solid #2E8B5755;border-radius:20px;padding:2px 8px;font-size:10px;color:var(--safe);font-weight:700;margin-top:4px;}
+.s-dist{font-size:13px;font-weight:800;text-align:right;flex-shrink:0;color:var(--safe);}
+
+/* 경로 카드 */
+.route-card{background:var(--white);border:2px solid var(--border);border-radius:14px;padding:14px;margin-bottom:10px;cursor:pointer;transition:all .2s;box-shadow:0 1px 4px var(--shadow);}
+.route-card.selected{border-color:var(--card-color);box-shadow:0 3px 14px rgba(0,0,0,.10);}
+.route-card:hover{border-color:var(--card-color);}
+.route-header{display:flex;justify-content:space-between;align-items:flex-start;}
+.route-name{font-size:14px;font-weight:800;color:var(--text);}
+.route-sub{font-size:12px;color:var(--dim);margin-top:3px;}
+.score-badge{background:color-mix(in srgb,var(--card-color) 15%,transparent);border:1.5px solid var(--card-color);border-radius:20px;padding:4px 12px;font-size:13px;font-weight:900;color:var(--card-color);}
+.route-meta{display:flex;gap:14px;margin-top:10px;}
+.route-meta span{font-size:12px;color:var(--dim);}
+.risk-tag{font-weight:800!important;}
+.route-features{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;}
+.feature-tag{background:color-mix(in srgb,var(--card-color) 12%,transparent);border:1.5px solid color-mix(in srgb,var(--card-color) 40%,transparent);border-radius:20px;padding:3px 10px;font-size:11px;color:var(--card-color);font-weight:600;}
+.cta-btn{width:100%;background:var(--accent);border:none;border-radius:14px;padding:16px;color:var(--white);font-size:16px;font-weight:900;cursor:pointer;font-family:inherit;margin-top:6px;box-shadow:0 4px 16px rgba(255,140,0,.4);letter-spacing:-.02em;transition:background .15s,transform .1s;}
+.cta-btn:hover{background:var(--accent2);transform:translateY(-1px);}
+
+/* 알림 */
+#alert-banner{background:#FFF3CD;border:2px solid #FF8C0066;border-radius:12px;padding:10px 14px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;}
+.alert-text{font-size:12px;color:#7A4000;font-weight:700;}
+.alert-close{background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer;}
+#loc-bar{display:none;background:#E8F5EE;border:2px solid #2E8B5755;border-radius:12px;padding:9px 14px;margin-bottom:10px;align-items:center;gap:10px;}
+#loc-bar.visible{display:flex;}
+#loc-bar-text{font-size:12px;color:var(--dim);flex:1;line-height:1.5;}
+#loc-bar-text strong{color:var(--safe);font-size:13px;}
+#loc-bar-close{background:none;border:none;color:var(--muted);font-size:18px;cursor:pointer;}
+
+/* 데이터 탭 */
+.data-grid{display:flex;gap:10px;margin-bottom:10px;}
+.data-card{flex:1;background:var(--white);border:2px solid var(--border);border-radius:14px;padding:14px;box-shadow:0 1px 4px var(--shadow);}
+.data-card-label{font-size:10px;color:var(--dim);letter-spacing:.08em;text-transform:uppercase;margin-bottom:5px;font-weight:600;}
+.data-card-icon{font-size:20px;margin-bottom:5px;}
+.data-card-val{font-size:22px;font-weight:900;color:var(--dc-color,var(--text));}
+.data-card-sub{font-size:11px;color:var(--dim);margin-top:3px;}
+.road-block{background:var(--white);border:2px solid var(--border);border-radius:14px;padding:14px;margin-bottom:12px;box-shadow:0 1px 4px var(--shadow);}
+.road-title{font-size:13px;font-weight:800;margin-bottom:12px;color:var(--text);}
+.road-row{margin-bottom:10px;}
+.road-row-top{display:flex;justify-content:space-between;font-size:13px;margin-bottom:5px;font-weight:600;}
+.road-bar-bg{height:7px;background:var(--border);border-radius:99px;overflow:hidden;}
+.road-bar{height:100%;border-radius:99px;transition:width 1.2s ease;}
+.rainfall-block{background:var(--white);border:2px solid var(--border);border-radius:14px;padding:14px;display:flex;align-items:center;gap:14px;box-shadow:0 1px 4px var(--shadow);}
+.rf-gauge{position:relative;width:60px;height:60px;flex-shrink:0;}
+.rf-gauge svg{position:absolute;inset:0;}
+.rf-val{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:var(--text);}
+
+/* 시설 탭 */
+.fac-section{margin-bottom:16px;}
+.fac-title{font-size:13px;font-weight:800;margin-bottom:9px;display:flex;align-items:center;gap:6px;}
+.fac-card{background:var(--white);border:2px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;transition:border-color .2s,box-shadow .2s;box-shadow:0 1px 4px var(--shadow);}
+.fac-card:hover{border-color:var(--accent);box-shadow:0 3px 10px var(--shadow);}
+.fac-name{font-size:14px;font-weight:700;color:var(--text);}
+.fac-type{font-size:12px;color:var(--dim);margin-top:2px;}
+.fac-badges{display:flex;flex-direction:column;align-items:flex-end;gap:5px;}
+.op-badge{background:#2E8B5718;border:1.5px solid #2E8B5755;border-radius:20px;padding:3px 10px;font-size:11px;color:var(--safe);font-weight:700;}
+.acc-badge{font-size:11px;color:var(--safe);font-weight:600;}
+.ai-tip{background:#FFF8EE;border:2px solid #FF8C0055;border-radius:14px;padding:14px;}
+.ai-tip-title{font-size:13px;font-weight:800;color:var(--accent);margin-bottom:6px;}
+.ai-tip-body{font-size:12px;color:var(--text);line-height:1.7;}
+.ai-tip-body strong{color:var(--safe);font-weight:800;}
 </style>
 </head>
 <body>
@@ -104,9 +158,9 @@
     <div>
       <div class="live-badge"><div class="live-dot"></div> LIVE · 실시간 연동</div>
       <div class="logo">걱정마<span style="font-family:'Noto Serif KR',serif;">路</span></div>
-      <div style="font-size:10px;color:var(--dim);margin-top:1px;">어르신·장애인을 위한 안전 대피 길안내</div>
+      <div style="font-size:11px;color:rgba(255,255,255,.75);margin-top:1px;">어르신·장애인을 위한 안전 대피 길안내</div>
     </div>
-    <div class="rain-badge">🌧 강우 주의 &nbsp;47mm</div>
+    <div class="rain-badge">🌧 강우 주의 47mm</div>
   </div>
   <div class="tabs">
     <button class="tab active" onclick="switchTab('route',this)">🧭 대피루트</button>
@@ -115,15 +169,36 @@
   </div>
 </div>
 
+<div id="search-box">
+  <div class="search-row">
+    <div class="search-dot" style="background:#FF8C00;box-shadow:0 0 6px #FF8C0088;"></div>
+    <div class="search-input-wrap" id="origin-wrap">
+      <input class="search-input" id="origin-input" placeholder="출발지를 입력하세요" oninput="onSearch('origin')" autocomplete="off"/>
+      <button class="search-clear" id="origin-clear" onclick="clearInput('origin')">×</button>
+      <div class="suggestions" id="origin-sugg"></div>
+    </div>
+    <button class="go-btn" onclick="useMyLoc()" title="현재위치를 출발지로" id="myloc-btn" style="padding:10px 12px;">📍</button>
+  </div>
+  <div class="search-row">
+    <div class="search-dot" style="background:#2E8B57;box-shadow:0 0 6px #2E8B5788;"></div>
+    <div class="search-input-wrap" id="dest-wrap">
+      <input class="search-input" id="dest-input" placeholder="도착지를 입력하세요" oninput="onSearch('dest')" autocomplete="off"/>
+      <button class="search-clear" id="dest-clear" onclick="clearInput('dest')">×</button>
+      <div class="suggestions" id="dest-sugg"></div>
+    </div>
+    <button class="go-btn" id="go-btn" onclick="findRoute()" disabled>길찾기</button>
+  </div>
+</div>
+
 <div class="map-wrap">
-  <div id="map" style="height:260px;"></div>
+  <div id="map" style="height:220px;"></div>
   <button id="loc-btn" onclick="locateMe()" title="현재위치"><span>📍</span></button>
   <div class="map-legend">
-    <div class="legend-item"><div class="legend-line" style="background:#00FF94;"></div>안전</div>
-    <div class="legend-item"><div class="legend-line" style="background:#00D4FF;"></div>우회</div>
-    <div class="legend-item"><div class="legend-line" style="background:#FF6B35;"></div>위험</div>
+    <div class="legend-item"><div class="legend-line" style="background:#FF8C00;"></div>검색경로</div>
+    <div class="legend-item"><div class="legend-line" style="background:#2E8B57;"></div>안전</div>
     <div class="legend-item">♿ 장애인</div>
-    <div class="legend-item">🧓 노인시설</div>
+    <div class="legend-item">🧓 노인</div>
+    <div class="legend-item">🛡 대피소</div>
   </div>
 </div>
 
@@ -134,69 +209,83 @@
       <button class="alert-close" onclick="this.parentElement.remove()">×</button>
     </div>
     <div id="loc-bar">
-      <span style="font-size:18px">📍</span>
+      <span style="font-size:20px">📍</span>
       <div id="loc-bar-text">위치 확인 중...</div>
       <button id="loc-bar-close" onclick="clearLocation()">×</button>
     </div>
-    <div class="section-label">B4O1·B428·BO30·BO38 데이터 기반 추천 경로</div>
-    <div class="route-card selected" style="--card-color:#00FF94" onclick="selectRoute(0,this)">
+
+    <div id="shelter-result">
+      <div class="route-info-card" id="route-info-card"></div>
+      <div class="shelter-header">
+        <div class="shelter-title">🛡 경로 내 대피장소 추천</div>
+        <div class="shelter-count" id="shelter-count">0곳</div>
+      </div>
+      <div id="shelter-list"></div>
+      <div style="height:8px;"></div>
+    </div>
+
+    <div class="section-label">기본 추천 경로 (샘플)</div>
+    <div class="route-card selected" style="--card-color:#2E8B57" onclick="selectPreset(0,this)">
       <div class="route-header">
-        <div><div class="route-name" style="color:#00FF94">최단 안전 루트</div><div class="route-sub">남대문로 → 퇴계로</div></div>
+        <div><div class="route-name">최단 안전 루트</div><div class="route-sub">남대문로 → 퇴계로</div></div>
         <div class="score-badge">94점</div>
       </div>
-      <div class="route-meta"><span>🕐 18분</span><span>📍 1.2km</span><span class="risk-tag" style="color:#00FF94">위험도 낮음</span></div>
-      <div class="route-features">
-        <span class="feature-tag">엘리베이터 있음</span>
-        <span class="feature-tag">휠체어 경사로</span>
-        <span class="feature-tag">우천 대피소 2곳</span>
-      </div>
+      <div class="route-meta"><span>🕐 18분</span><span>📍 1.2km</span><span class="risk-tag" style="color:#2E8B57">위험도 낮음</span></div>
+      <div class="route-features"><span class="feature-tag">엘리베이터</span><span class="feature-tag">휠체어 경사로</span><span class="feature-tag">대피소 2곳</span></div>
     </div>
-    <div class="route-card" style="--card-color:#00D4FF" onclick="selectRoute(1,this)">
+    <div class="route-card" style="--card-color:#FF8C00" onclick="selectPreset(1,this)">
       <div class="route-header">
-        <div><div class="route-name" style="color:#00D4FF">혼잡 우회 루트</div><div class="route-sub">을지로 → 충무로</div></div>
+        <div><div class="route-name">혼잡 우회 루트</div><div class="route-sub">을지로 → 충무로</div></div>
         <div class="score-badge">78점</div>
       </div>
-      <div class="route-meta"><span>🕐 24분</span><span>📍 1.8km</span><span class="risk-tag" style="color:#00D4FF">위험도 보통</span></div>
+      <div class="route-meta"><span>🕐 24분</span><span>📍 1.8km</span><span class="risk-tag" style="color:#FF8C00">위험도 보통</span></div>
     </div>
-    <div class="route-card" style="--card-color:#FF6B35" onclick="selectRoute(2,this)">
+    <div class="route-card" style="--card-color:#CC3300" onclick="selectPreset(2,this)">
       <div class="route-header">
-        <div><div class="route-name" style="color:#FF6B35">실내 대피 루트</div><div class="route-sub">세종대로 → 지하보도</div></div>
+        <div><div class="route-name">실내 대피 루트</div><div class="route-sub">세종대로 → 지하보도</div></div>
         <div class="score-badge">61점</div>
       </div>
-      <div class="route-meta"><span>🕐 14분</span><span>📍 0.9km</span><span class="risk-tag" style="color:#FF6B35">위험도 높음</span></div>
+      <div class="route-meta"><span>🕐 14분</span><span>📍 0.9km</span><span class="risk-tag" style="color:#CC3300">위험도 높음</span></div>
     </div>
-    <button class="cta-btn" onclick="startNavigation()">🧭 선택된 루트로 안내 시작</button>
+    <button class="cta-btn" onclick="startNav()">🧭 선택된 루트로 안내 시작</button>
   </div>
 
   <div id="tab-data" style="display:none">
     <div class="section-label">핵심 데이터 현황</div>
     <div class="data-grid">
-      <div class="data-card" style="--dc-color:#00FF94;--dc-glow:#00FF9428"><div class="data-card-icon">♿</div><div class="data-card-label">B4O1 장애인시설</div><div class="data-card-val">3곳</div><div class="data-card-sub">반경 1km 내</div></div>
-      <div class="data-card" style="--dc-color:#A78BFA;--dc-glow:#A78BFA28"><div class="data-card-icon">🧓</div><div class="data-card-label">B428 노인시설</div><div class="data-card-val">3곳</div><div class="data-card-sub">활성 운영 중</div></div>
+      <div class="data-card" style="--dc-color:#2E8B57;border-color:#2E8B5744;"><div class="data-card-icon">♿</div><div class="data-card-label">B4O1 장애인시설</div><div class="data-card-val">3곳</div><div class="data-card-sub">반경 1km 내</div></div>
+      <div class="data-card" style="--dc-color:#7B5EA7;border-color:#7B5EA744;"><div class="data-card-icon">🧓</div><div class="data-card-label">B428 노인시설</div><div class="data-card-val">3곳</div><div class="data-card-sub">활성 운영 중</div></div>
     </div>
     <div class="data-grid">
-      <div class="data-card" style="--dc-color:#FF6B35;--dc-glow:#FF6B3528"><div class="data-card-icon">🌧</div><div class="data-card-label">BO38 강우량</div><div class="data-card-val">47mm</div><div class="data-card-sub">주의 단계</div></div>
-      <div class="data-card" style="--dc-color:#00D4FF;--dc-glow:#00D4FF28"><div class="data-card-icon">🚶</div><div class="data-card-label">BO30 유동인구</div><div class="data-card-val">↑85%</div><div class="data-card-sub">세종대로 혼잡</div></div>
+      <div class="data-card" style="--dc-color:#CC3300;border-color:#CC330044;"><div class="data-card-icon">🌧</div><div class="data-card-label">BO38 강우량</div><div class="data-card-val">47mm</div><div class="data-card-sub">주의 단계</div></div>
+      <div class="data-card" style="--dc-color:#FF8C00;border-color:#FF8C0044;"><div class="data-card-icon">🚶</div><div class="data-card-label">BO30 유동인구</div><div class="data-card-val">↑85%</div><div class="data-card-sub">세종대로 혼잡</div></div>
     </div>
-    <div class="road-block"><div class="road-title">도로별 유동인구 현황 (BO30)</div><div id="road-bars"></div></div>
+    <div class="road-block">
+      <div class="road-title">도로별 유동인구 현황 (BO30)</div>
+      <div id="road-bars"></div>
+    </div>
     <div class="rainfall-block">
       <div class="rf-gauge">
-        <svg viewBox="0 0 56 56"><circle cx="28" cy="28" r="22" fill="none" stroke="#1E293B" stroke-width="5"/><circle cx="28" cy="28" r="22" fill="none" stroke="#FF6B35" stroke-width="5" stroke-dasharray="65 138" stroke-linecap="round" transform="rotate(-90 28 28)"/></svg>
+        <svg viewBox="0 0 60 60"><circle cx="30" cy="30" r="24" fill="none" stroke="#E8D9C0" stroke-width="6"/><circle cx="30" cy="30" r="24" fill="none" stroke="#CC3300" stroke-width="6" stroke-dasharray="71 151" stroke-linecap="round" transform="rotate(-90 30 30)"/></svg>
         <div class="rf-val">47mm</div>
       </div>
-      <div><div class="rf-label">강우량 상태 (BO38)</div><div class="rf-sub">현재 47mm/h · 증가 추세 · 침수위험 중간</div><div class="rf-tag">⚠ 주의 단계 — 저지대 우회 권장</div></div>
+      <div>
+        <div style="font-size:14px;font-weight:800;color:var(--text);">강우량 상태 (BO38)</div>
+        <div style="font-size:12px;color:var(--dim);margin-top:3px;">현재 47mm/h · 증가 추세 · 침수위험 중간</div>
+        <div style="display:inline-block;background:#CC330015;border:1.5px solid #CC330055;border-radius:20px;padding:4px 12px;font-size:11px;color:#CC3300;font-weight:700;margin-top:6px;">⚠ 주의 단계 — 저지대 우회 권장</div>
+      </div>
     </div>
   </div>
 
   <div id="tab-facility" style="display:none">
     <div class="fac-section">
-      <div class="fac-title" style="color:#00FF94">♿ 장애인 편의시설 (B4O1)</div>
+      <div class="fac-title" style="color:#2E8B57;">♿ 장애인 편의시설 (B4O1)</div>
       <div class="fac-card" onclick="focusMarker(0)"><div><div class="fac-name">장애인복지관 A</div><div class="fac-type">복지관</div></div><div class="fac-badges"><span class="op-badge">운영 중</span><span class="acc-badge">♿ 접근 가능</span></div></div>
       <div class="fac-card" onclick="focusMarker(1)"><div><div class="fac-name">장애인 편의시설 B</div><div class="fac-type">편의시설</div></div><div class="fac-badges"><span class="op-badge">운영 중</span><span class="acc-badge">♿ 접근 가능</span></div></div>
       <div class="fac-card" onclick="focusMarker(2)"><div><div class="fac-name">장애인주차장 C</div><div class="fac-type">주차장</div></div><div class="fac-badges"><span class="op-badge">운영 중</span></div></div>
     </div>
     <div class="fac-section">
-      <div class="fac-title" style="color:#A78BFA">🧓 노인복지시설 (B428)</div>
+      <div class="fac-title" style="color:#7B5EA7;">🧓 노인복지시설 (B428)</div>
       <div class="fac-card" onclick="focusMarker(3)"><div><div class="fac-name">노인복지관 가</div><div class="fac-type">복지관</div></div><div class="fac-badges"><span class="op-badge">운영 중</span></div></div>
       <div class="fac-card" onclick="focusMarker(4)"><div><div class="fac-name">요양원 나</div><div class="fac-type">요양원</div></div><div class="fac-badges"><span class="op-badge">운영 중</span></div></div>
       <div class="fac-card" onclick="focusMarker(5)"><div><div class="fac-name">경로당 다</div><div class="fac-type">경로당</div></div><div class="fac-badges"><span class="op-badge">운영 중</span></div></div>
@@ -209,130 +298,256 @@
 </div>
 
 <script>
-const facilities = [
-  { lat: 37.5620, lng: 126.9840, name: "장애인복지관 A",   type: "disability", label: "♿" },
-  { lat: 37.5585, lng: 126.9910, name: "장애인 편의시설 B", type: "disability", label: "♿" },
-  { lat: 37.5650, lng: 126.9780, name: "장애인주차장 C",   type: "disability", label: "♿" },
-  { lat: 37.5600, lng: 126.9870, name: "노인복지관 가",    type: "elderly",    label: "🧓" },
-  { lat: 37.5560, lng: 126.9820, name: "요양원 나",        type: "elderly",    label: "🧓" },
-  { lat: 37.5630, lng: 126.9940, name: "경로당 다",        type: "elderly",    label: "🧓" },
+const facilities=[
+  {lat:37.5620,lng:126.9840,name:"장애인복지관 A",  type:"disability",label:"♿",accessible:true},
+  {lat:37.5585,lng:126.9910,name:"장애인 편의시설 B",type:"disability",label:"♿",accessible:true},
+  {lat:37.5650,lng:126.9780,name:"장애인주차장 C",  type:"disability",label:"♿",accessible:false},
+  {lat:37.5600,lng:126.9870,name:"노인복지관 가",   type:"elderly",   label:"🧓",accessible:true},
+  {lat:37.5560,lng:126.9820,name:"요양원 나",       type:"elderly",   label:"🧓",accessible:true},
+  {lat:37.5630,lng:126.9940,name:"경로당 다",       type:"elderly",   label:"🧓",accessible:false},
 ];
-const roads = [
-  { name:"세종대로", congestion:85 }, { name:"을지로", congestion:42 },
-  { name:"퇴계로",   congestion:67 }, { name:"남대문로", congestion:28 }, { name:"충무로", congestion:55 },
+const roads=[{name:"세종대로",congestion:85},{name:"을지로",congestion:42},{name:"퇴계로",congestion:67},{name:"남대문로",congestion:28},{name:"충무로",congestion:55}];
+const presets=[
+  [new kakao.maps.LatLng(37.5640,126.9750),new kakao.maps.LatLng(37.5620,126.9780),new kakao.maps.LatLng(37.5605,126.9820),new kakao.maps.LatLng(37.5590,126.9870),new kakao.maps.LatLng(37.5575,126.9900)],
+  [new kakao.maps.LatLng(37.5640,126.9750),new kakao.maps.LatLng(37.5655,126.9810),new kakao.maps.LatLng(37.5648,126.9855),new kakao.maps.LatLng(37.5620,126.9900),new kakao.maps.LatLng(37.5575,126.9900)],
+  [new kakao.maps.LatLng(37.5640,126.9750),new kakao.maps.LatLng(37.5660,126.9760),new kakao.maps.LatLng(37.5670,126.9820),new kakao.maps.LatLng(37.5645,126.9870),new kakao.maps.LatLng(37.5575,126.9900)],
 ];
-const routePaths = [
-  [ new kakao.maps.LatLng(37.5640,126.9750), new kakao.maps.LatLng(37.5620,126.9780), new kakao.maps.LatLng(37.5605,126.9820), new kakao.maps.LatLng(37.5590,126.9870), new kakao.maps.LatLng(37.5575,126.9900) ],
-  [ new kakao.maps.LatLng(37.5640,126.9750), new kakao.maps.LatLng(37.5655,126.9810), new kakao.maps.LatLng(37.5648,126.9855), new kakao.maps.LatLng(37.5620,126.9900), new kakao.maps.LatLng(37.5575,126.9900) ],
-  [ new kakao.maps.LatLng(37.5640,126.9750), new kakao.maps.LatLng(37.5660,126.9760), new kakao.maps.LatLng(37.5670,126.9820), new kakao.maps.LatLng(37.5645,126.9870), new kakao.maps.LatLng(37.5575,126.9900) ],
-];
-const routeColors = ["#00FF94","#00D4FF","#FF6B35"];
-let polylines=[], markers=[], selectedRouteIdx=0, map, myMarker=null, myCircle=null;
+const pColors=["#2E8B57","#FF8C00","#CC3300"];
 
-window.addEventListener('load', () => {
-  map = new kakao.maps.Map(document.getElementById('map'), { center: new kakao.maps.LatLng(37.5610,126.9825), level:4 });
-  drawRoutes(); addFacilityMarkers(); addStartEndMarkers(); buildRoadBars();
+let map,ps,geocoder;
+let polylines=[],fMarkers=[],routeMarkers=[];
+let myMarker=null,myCircle=null;
+let selectedIdx=0;
+let originPlace=null,destPlace=null;
+let timers={};
+
+window.addEventListener('load',()=>{
+  map=new kakao.maps.Map(document.getElementById('map'),{center:new kakao.maps.LatLng(37.5610,126.9825),level:4});
+  ps=new kakao.maps.services.Places();
+  geocoder=new kakao.maps.services.Geocoder();
+  drawPresets(); addFacMarkers(); addPresetEndpoints(); buildRoadBars();
 });
 
-function drawRoutes() {
+function onSearch(type){
+  const inp=document.getElementById(type==='origin'?'origin-input':'dest-input');
+  const clr=document.getElementById(type==='origin'?'origin-clear':'dest-clear');
+  const sug=document.getElementById(type==='origin'?'origin-sugg':'dest-sugg');
+  const v=inp.value.trim();
+  clr.style.display=v?'block':'none';
+  clearTimeout(timers[type]);
+  if(!v){sug.style.display='none';return;}
+  timers[type]=setTimeout(()=>{
+    ps.keywordSearch(v,(res,status)=>{
+      if(status!==kakao.maps.services.Status.OK){sug.style.display='none';return;}
+      sug.innerHTML=res.slice(0,5).map(p=>`
+        <div class="sugg-item" onclick="pickPlace('${type}','${esc(p.place_name)}',${p.y},${p.x},'${esc(p.road_address_name||p.address_name)}')">
+          <div class="sugg-name">${p.place_name}</div>
+          <div class="sugg-addr">${p.road_address_name||p.address_name}</div>
+        </div>`).join('');
+      sug.style.display='block';
+    },{size:5});
+  },300);
+}
+function esc(s){return s.replace(/'/g,"\\'");}
+
+function pickPlace(type,name,lat,lng,addr){
+  const place={name,lat:parseFloat(lat),lng:parseFloat(lng),addr};
+  if(type==='origin'){originPlace=place;document.getElementById('origin-input').value=name;document.getElementById('origin-sugg').style.display='none';document.getElementById('origin-clear').style.display='block';}
+  else{destPlace=place;document.getElementById('dest-input').value=name;document.getElementById('dest-sugg').style.display='none';document.getElementById('dest-clear').style.display='block';}
+  checkReady();
+}
+function clearInput(type){
+  if(type==='origin'){originPlace=null;document.getElementById('origin-input').value='';document.getElementById('origin-clear').style.display='none';document.getElementById('origin-sugg').style.display='none';}
+  else{destPlace=null;document.getElementById('dest-input').value='';document.getElementById('dest-clear').style.display='none';document.getElementById('dest-sugg').style.display='none';}
+  checkReady();
+}
+function checkReady(){document.getElementById('go-btn').disabled=!(originPlace&&destPlace);}
+document.addEventListener('click',e=>{
+  if(!e.target.closest('#origin-wrap'))document.getElementById('origin-sugg').style.display='none';
+  if(!e.target.closest('#dest-wrap'))document.getElementById('dest-sugg').style.display='none';
+});
+
+function useMyLoc(){
+  if(!navigator.geolocation){alert('위치 기능 미지원 브라우저입니다.');return;}
+  document.getElementById('myloc-btn').textContent='⏳';
+  navigator.geolocation.getCurrentPosition(pos=>{
+    const lat=pos.coords.latitude,lng=pos.coords.longitude;
+    geocoder.coord2Address(lng,lat,(res,st)=>{
+      const addr=st===kakao.maps.services.Status.OK?(res[0].road_address?.address_name||res[0].address.address_name):'현재위치';
+      originPlace={name:'현재위치',lat,lng,addr};
+      document.getElementById('origin-input').value='📍 현재위치';
+      document.getElementById('origin-clear').style.display='block';
+      document.getElementById('myloc-btn').textContent='📍';
+      checkReady();
+    });
+  },()=>{document.getElementById('myloc-btn').textContent='📍';alert('위치를 가져올 수 없습니다.');});
+}
+
+function findRoute(){
+  if(!originPlace||!destPlace)return;
+  routeMarkers.forEach(m=>{if(m.setMap)m.setMap(null);}); routeMarkers=[];
+  const oLL=new kakao.maps.LatLng(originPlace.lat,originPlace.lng);
+  const dLL=new kakao.maps.LatLng(destPlace.lat,destPlace.lng);
+  addRouteMarker(oLL,'출','#FF8C00');
+  addRouteMarker(dLL,'도','#2E8B57');
+  const line=new kakao.maps.Polyline({path:[oLL,dLL],strokeWeight:5,strokeColor:'#FF8C00',strokeOpacity:.85,strokeStyle:'solid'});
+  line.setMap(map); routeMarkers.push(line);
+  const bounds=new kakao.maps.LatLngBounds();
+  bounds.extend(oLL); bounds.extend(dLL);
+  const nearby=facilities.map(f=>{
+    const dRoute=ptSegDist(f.lat,f.lng,originPlace.lat,originPlace.lng,destPlace.lat,destPlace.lng);
+    const dOrigin=haversine(f.lat,f.lng,originPlace.lat,originPlace.lng);
+    return{...f,dRoute,dOrigin};
+  }).filter(f=>f.dRoute<0.006).sort((a,b)=>a.dOrigin-b.dOrigin);
+  nearby.forEach(f=>{
+    const color=f.type==='disability'?'#2E8B57':'#7B5EA7';
+    const svg=`<svg xmlns='http://www.w3.org/2000/svg' width='40' height='48'><circle cx='20' cy='20' r='18' fill='${color}'/><circle cx='20' cy='20' r='18' fill='none' stroke='white' stroke-width='2'/><text x='20' y='15' text-anchor='middle' font-size='9' fill='white' font-weight='bold'>대피</text><text x='20' y='28' text-anchor='middle' font-size='14'>${f.label}</text><polygon points='14,36 26,36 20,48' fill='${color}'/></svg>`;
+    const m=new kakao.maps.Marker({position:new kakao.maps.LatLng(f.lat,f.lng),image:new kakao.maps.MarkerImage('data:image/svg+xml;base64,'+btoa(unescape(encodeURIComponent(svg))),new kakao.maps.Size(40,48),{offset:new kakao.maps.Point(20,48)}),title:f.name});
+    m.setMap(map);
+    bounds.extend(new kakao.maps.LatLng(f.lat,f.lng));
+    const iw=new kakao.maps.InfoWindow({content:`<div style="padding:7px 12px;font-size:13px;font-weight:700;background:#FFF;color:#2F4F4F;border-radius:8px;border:2px solid ${color};">🛡 ${f.name}</div>`,removable:true});
+    kakao.maps.event.addListener(m,'click',()=>iw.open(map,m));
+    routeMarkers.push(m);
+  });
+  map.setBounds(bounds,60);
+  renderShelterResult(nearby,originPlace,destPlace);
+}
+
+function addRouteMarker(ll,label,color){
+  const svg=`<svg xmlns='http://www.w3.org/2000/svg' width='36' height='44'><circle cx='18' cy='18' r='16' fill='${color}'/><circle cx='18' cy='18' r='16' fill='none' stroke='white' stroke-width='2.5'/><text x='18' y='23' text-anchor='middle' font-size='14' fill='white' font-weight='bold'>${label}</text><polygon points='12,32 24,32 18,44' fill='${color}'/></svg>`;
+  const m=new kakao.maps.Marker({position:ll,image:new kakao.maps.MarkerImage('data:image/svg+xml;base64,'+btoa(unescape(encodeURIComponent(svg))),new kakao.maps.Size(36,44),{offset:new kakao.maps.Point(18,44)})});
+  m.setMap(map); routeMarkers.push(m);
+}
+
+function ptSegDist(px,py,ax,ay,bx,by){
+  const dx=bx-ax,dy=by-ay;
+  if(!dx&&!dy)return Math.hypot(px-ax,py-ay);
+  const t=Math.max(0,Math.min(1,((px-ax)*dx+(py-ay)*dy)/(dx*dx+dy*dy)));
+  return Math.hypot(px-(ax+t*dx),py-(ay+t*dy));
+}
+function haversine(lat1,lng1,lat2,lng2){
+  const R=6371000,dLat=(lat2-lat1)*Math.PI/180,dLng=(lng2-lng1)*Math.PI/180;
+  const a=Math.sin(dLat/2)**2+Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLng/2)**2;
+  return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+}
+
+function renderShelterResult(nearby,origin,dest){
+  const totalM=Math.round(haversine(origin.lat,origin.lng,dest.lat,dest.lng));
+  const walkMin=Math.round(totalM/67);
+  document.getElementById('route-info-card').innerHTML=`
+    <div style="font-size:12px;font-weight:700;color:var(--safe);margin-bottom:8px;">🗺 검색된 경로</div>
+    <div style="font-size:12px;color:var(--dim);margin-bottom:10px;">${origin.name} → ${dest.name}</div>
+    <div style="display:flex;gap:20px;">
+      <div><div style="font-size:10px;color:var(--dim);font-weight:600;text-transform:uppercase;">직선거리</div><div style="font-size:20px;font-weight:900;color:var(--text);margin-top:2px;">${totalM<1000?totalM+'m':(totalM/1000).toFixed(1)+'km'}</div></div>
+      <div><div style="font-size:10px;color:var(--dim);font-weight:600;text-transform:uppercase;">도보예상</div><div style="font-size:20px;font-weight:900;color:var(--text);margin-top:2px;">${walkMin}분</div></div>
+      <div><div style="font-size:10px;color:var(--dim);font-weight:600;text-transform:uppercase;">대피장소</div><div style="font-size:20px;font-weight:900;color:var(--safe);margin-top:2px;">${nearby.length}곳</div></div>
+    </div>`;
+  document.getElementById('shelter-count').textContent=nearby.length+'곳';
+  if(nearby.length===0){
+    document.getElementById('shelter-list').innerHTML=`<div style="background:var(--white);border:2px solid #CC330033;border-radius:12px;padding:16px;text-align:center;color:var(--dim);font-size:13px;line-height:1.8;">⚠ 이 경로 주변 600m 내<br>등록된 시설이 없습니다.<br><span style="font-size:11px;">시설 탭에서 직접 확인해 주세요.</span></div>`;
+  } else {
+    const rankColor=['#D4A017','#9E9E9E','#A0522D'];
+    document.getElementById('shelter-list').innerHTML=nearby.map((f,i)=>{
+      const color=f.type==='disability'?'#2E8B57':'#7B5EA7';
+      const rc=rankColor[i]||'#B0C4C4';
+      const dm=Math.round(f.dOrigin);
+      return `<div class="shelter-card ${i===0?'top':''}" onclick="jumpTo(${f.lat},${f.lng})">
+        <div class="s-rank" style="background:${rc}22;border:2px solid ${rc};color:${rc};">${i+1}</div>
+        <div class="s-info">
+          <div class="s-name">${f.label} ${f.name}</div>
+          <div class="s-type">${f.type==='disability'?'장애인 편의시설':'노인복지시설'} · ${f.accessible?'♿ 접근 가능':'일반 접근'}</div>
+          ${i===0?'<div class="s-best">🏆 가장 가까운 대피소</div>':''}
+        </div>
+        <div class="s-dist" style="color:${color};">${dm<1000?dm+'m':(dm/1000).toFixed(1)+'km'}</div>
+      </div>`;
+    }).join('');
+  }
+  document.getElementById('shelter-result').classList.add('visible');
+}
+
+function jumpTo(lat,lng){map.panTo(new kakao.maps.LatLng(lat,lng));map.setLevel(3);}
+
+function drawPresets(){
   polylines.forEach(p=>p.setMap(null)); polylines=[];
-  routePaths.forEach((path,i) => {
-    const pl = new kakao.maps.Polyline({ path, strokeWeight: i===selectedRouteIdx?5:2, strokeColor: routeColors[i], strokeOpacity: i===selectedRouteIdx?0.95:0.3, strokeStyle: i===selectedRouteIdx?'solid':'shortdash' });
+  presets.forEach((path,i)=>{
+    const pl=new kakao.maps.Polyline({path,strokeWeight:i===selectedIdx?5:2,strokeColor:pColors[i],strokeOpacity:i===selectedIdx?.9:.25,strokeStyle:i===selectedIdx?'solid':'shortdash'});
     pl.setMap(map); polylines.push(pl);
   });
 }
-
-function makeMarkerImg(emoji, color) {
-  const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='36' height='42'><circle cx='18' cy='18' r='16' fill='${color}' opacity='0.92'/><circle cx='18' cy='18' r='16' fill='none' stroke='white' stroke-width='2'/><text x='18' y='23' text-anchor='middle' font-size='14'>${emoji}</text><polygon points='13,32 23,32 18,42' fill='${color}'/></svg>`;
-  return 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svg)));
+function addPresetEndpoints(){
+  [{svg:`<svg xmlns='http://www.w3.org/2000/svg' width='32' height='38'><circle cx='16' cy='16' r='14' fill='#FF8C00'/><circle cx='16' cy='16' r='14' fill='none' stroke='white' stroke-width='2.5'/><text x='16' y='21' text-anchor='middle' font-size='13' fill='white' font-weight='bold'>출</text><polygon points='11,28 21,28 16,38' fill='#FF8C00'/></svg>`,pos:presets[0][0]},
+   {svg:`<svg xmlns='http://www.w3.org/2000/svg' width='32' height='38'><circle cx='16' cy='16' r='14' fill='#2E8B57'/><circle cx='16' cy='16' r='14' fill='none' stroke='white' stroke-width='2.5'/><text x='16' y='21' text-anchor='middle' font-size='13' fill='white' font-weight='bold'>도</text><polygon points='11,28 21,28 16,38' fill='#2E8B57'/></svg>`,pos:presets[0][presets[0].length-1]}
+  ].forEach(({svg,pos})=>new kakao.maps.Marker({position:pos,image:new kakao.maps.MarkerImage('data:image/svg+xml;base64,'+btoa(unescape(encodeURIComponent(svg))),new kakao.maps.Size(32,38),{offset:new kakao.maps.Point(16,38)})}).setMap(map));
 }
 
-function addFacilityMarkers() {
-  markers.forEach(m=>m.setMap(null)); markers=[];
-  facilities.forEach((f,i) => {
-    const color = f.type==='disability'?'#00FF94':'#A78BFA';
-    const marker = new kakao.maps.Marker({ position: new kakao.maps.LatLng(f.lat,f.lng), image: new kakao.maps.MarkerImage(makeMarkerImg(f.label,color), new kakao.maps.Size(36,42), {offset:new kakao.maps.Point(18,42)}), title: f.name });
-    marker.setMap(map);
-    const iw = new kakao.maps.InfoWindow({ content:`<div style="padding:6px 10px;font-size:12px;font-weight:700;background:#111827;color:#E2E8F0;border-radius:8px;border:1px solid ${color};white-space:nowrap;">${f.label} ${f.name}</div>`, removable:true });
-    kakao.maps.event.addListener(marker,'click',()=>iw.open(map,marker));
-    markers.push(marker);
+function addFacMarkers(){
+  fMarkers.forEach(m=>m.setMap(null)); fMarkers=[];
+  facilities.forEach((f,i)=>{
+    const color=f.type==='disability'?'#2E8B57':'#7B5EA7';
+    const svg=`<svg xmlns='http://www.w3.org/2000/svg' width='36' height='42'><circle cx='18' cy='18' r='16' fill='${color}'/><circle cx='18' cy='18' r='16' fill='none' stroke='white' stroke-width='2'/><text x='18' y='23' text-anchor='middle' font-size='14'>${f.label}</text><polygon points='13,32 23,32 18,42' fill='${color}'/></svg>`;
+    const m=new kakao.maps.Marker({position:new kakao.maps.LatLng(f.lat,f.lng),image:new kakao.maps.MarkerImage('data:image/svg+xml;base64,'+btoa(unescape(encodeURIComponent(svg))),new kakao.maps.Size(36,42),{offset:new kakao.maps.Point(18,42)}),title:f.name});
+    m.setMap(map);
+    const iw=new kakao.maps.InfoWindow({content:`<div style="padding:7px 12px;font-size:13px;font-weight:700;background:#FFF;color:#2F4F4F;border-radius:8px;border:2px solid ${color};">${f.label} ${f.name}</div>`,removable:true});
+    kakao.maps.event.addListener(m,'click',()=>iw.open(map,m));
+    fMarkers.push(m);
   });
 }
 
-function addStartEndMarkers() {
-  [
-    { svg:`<svg xmlns='http://www.w3.org/2000/svg' width='32' height='38'><circle cx='16' cy='16' r='14' fill='#0A0F1E' stroke='#00D4FF' stroke-width='3'/><text x='16' y='21' text-anchor='middle' font-size='13' fill='#00D4FF' font-weight='bold'>출</text><polygon points='11,28 21,28 16,38' fill='#00D4FF'/></svg>`, pos:routePaths[0][0] },
-    { svg:`<svg xmlns='http://www.w3.org/2000/svg' width='32' height='38'><circle cx='16' cy='16' r='14' fill='#0A0F1E' stroke='#FF6B35' stroke-width='3'/><text x='16' y='21' text-anchor='middle' font-size='13' fill='#FF6B35' font-weight='bold'>도</text><polygon points='11,28 21,28 16,38' fill='#FF6B35'/></svg>`, pos:routePaths[0][routePaths[0].length-1] },
-  ].forEach(({svg,pos}) => {
-    new kakao.maps.Marker({ position:pos, image:new kakao.maps.MarkerImage('data:image/svg+xml;base64,'+btoa(unescape(encodeURIComponent(svg))), new kakao.maps.Size(32,38),{offset:new kakao.maps.Point(16,38)}) }).setMap(map);
-  });
+function locateMe(){
+  const btn=document.getElementById('loc-btn');
+  if(!navigator.geolocation){alert('위치 기능 미지원');return;}
+  btn.classList.add('loading');btn.querySelector('span').textContent='⏳';
+  navigator.geolocation.getCurrentPosition(pos=>{
+    const lat=pos.coords.latitude,lng=pos.coords.longitude,acc=Math.round(pos.coords.accuracy);
+    const ll=new kakao.maps.LatLng(lat,lng);
+    if(myMarker)myMarker.setMap(null);if(myCircle)myCircle.setMap(null);
+    const svg=`<svg xmlns='http://www.w3.org/2000/svg' width='28' height='28'><circle cx='14' cy='14' r='12' fill='#FF8C00' opacity='0.2'/><circle cx='14' cy='14' r='7' fill='#FF8C00' stroke='white' stroke-width='2.5'/></svg>`;
+    myMarker=new kakao.maps.Marker({position:ll,image:new kakao.maps.MarkerImage('data:image/svg+xml;base64,'+btoa(unescape(encodeURIComponent(svg))),new kakao.maps.Size(28,28),{offset:new kakao.maps.Point(14,14)}),title:'현재위치'});
+    myMarker.setMap(map);
+    myCircle=new kakao.maps.Circle({center:ll,radius:acc,strokeWeight:1,strokeColor:'#FF8C00',strokeOpacity:.4,fillColor:'#FF8C00',fillOpacity:.07});
+    myCircle.setMap(map);
+    map.panTo(ll);map.setLevel(4);
+    let md=Infinity,near=null;
+    facilities.forEach(f=>{const d=Math.hypot(f.lat-lat,f.lng-lng);if(d<md){md=d;near=f;}});
+    document.getElementById('loc-bar-text').innerHTML=`<strong>현재위치 확인됨</strong> · 정확도 ${acc}m<br>가장 가까운 시설: <strong>${near.label} ${near.name}</strong> (약 ${Math.round(md*111000)}m)`;
+    document.getElementById('loc-bar').classList.add('visible');
+    btn.classList.remove('loading');btn.querySelector('span').textContent='🎯';
+  },err=>{
+    btn.classList.remove('loading');btn.querySelector('span').textContent='📍';
+    alert({1:'위치 권한이 거부되었습니다.',2:'위치를 가져올 수 없습니다.',3:'시간이 초과되었습니다.'}[err.code]||'위치 오류');
+  },{enableHighAccuracy:true,timeout:10000,maximumAge:0});
 }
-
-function buildRoadBars() {
-  document.getElementById('road-bars').innerHTML = roads.map(r => {
-    const c = r.congestion>70?'#FF6B35':r.congestion>45?'#00D4FF':'#00FF94';
-    return `<div class="road-row"><div class="road-row-top"><span>${r.name}</span><span style="color:${c};font-weight:700">${r.congestion}%</span></div><div class="road-bar-bg"><div class="road-bar" style="width:${r.congestion}%;background:${c}"></div></div></div>`;
-  }).join('');
-}
-
-function locateMe() {
-  const btn = document.getElementById('loc-btn');
-  if (!navigator.geolocation) { alert('이 브라우저는 위치 기능을 지원하지 않습니다.'); return; }
-  btn.classList.add('loading'); btn.querySelector('span').textContent='⏳';
-  navigator.geolocation.getCurrentPosition(
-    (pos) => {
-      const lat=pos.coords.latitude, lng=pos.coords.longitude, acc=Math.round(pos.coords.accuracy);
-      const latlng = new kakao.maps.LatLng(lat,lng);
-      if (myMarker) myMarker.setMap(null);
-      if (myCircle) myCircle.setMap(null);
-      const mySvg=`<svg xmlns='http://www.w3.org/2000/svg' width='28' height='28'><circle cx='14' cy='14' r='12' fill='#00D4FF' opacity='0.25'/><circle cx='14' cy='14' r='7' fill='#00D4FF' stroke='white' stroke-width='2.5'/></svg>`;
-      myMarker = new kakao.maps.Marker({ position:latlng, image:new kakao.maps.MarkerImage('data:image/svg+xml;base64,'+btoa(unescape(encodeURIComponent(mySvg))),new kakao.maps.Size(28,28),{offset:new kakao.maps.Point(14,14)}), title:'현재위치' });
-      myMarker.setMap(map);
-      myCircle = new kakao.maps.Circle({ center:latlng, radius:acc, strokeWeight:1, strokeColor:'#00D4FF', strokeOpacity:0.5, fillColor:'#00D4FF', fillOpacity:0.08 });
-      myCircle.setMap(map);
-      map.panTo(latlng); map.setLevel(4);
-      let minDist=Infinity, nearest=null;
-      facilities.forEach(f => { const d=Math.sqrt(Math.pow(f.lat-lat,2)+Math.pow(f.lng-lng,2)); if(d<minDist){minDist=d;nearest=f;} });
-      document.getElementById('loc-bar-text').innerHTML=`<strong>현재위치 확인됨</strong> · 정확도 ${acc}m<br>가장 가까운 시설: <strong>${nearest.label} ${nearest.name}</strong> (약 ${Math.round(minDist*111000)}m)`;
-      document.getElementById('loc-bar').classList.add('visible');
-      btn.classList.remove('loading'); btn.querySelector('span').textContent='🎯';
-    },
-    (err) => {
-      btn.classList.remove('loading'); btn.querySelector('span').textContent='📍';
-      alert({1:'위치 권한이 거부되었습니다.\n브라우저 설정에서 위치 접근을 허용해 주세요.',2:'위치를 가져올 수 없습니다.',3:'위치 요청 시간이 초과되었습니다.'}[err.code]||'위치 오류가 발생했습니다.');
-    },
-    { enableHighAccuracy:true, timeout:10000, maximumAge:0 }
-  );
-}
-
-function clearLocation() {
+function clearLocation(){
   if(myMarker){myMarker.setMap(null);myMarker=null;}
   if(myCircle){myCircle.setMap(null);myCircle=null;}
   document.getElementById('loc-bar').classList.remove('visible');
   document.getElementById('loc-btn').querySelector('span').textContent='📍';
 }
 
-function selectRoute(idx,card) {
-  selectedRouteIdx=idx;
+function buildRoadBars(){
+  document.getElementById('road-bars').innerHTML=roads.map(r=>{
+    const c=r.congestion>70?'#CC3300':r.congestion>45?'#FF8C00':'#2E8B57';
+    return `<div class="road-row"><div class="road-row-top"><span>${r.name}</span><span style="color:${c};">${r.congestion}%</span></div><div class="road-bar-bg"><div class="road-bar" style="width:${r.congestion}%;background:${c}"></div></div></div>`;
+  }).join('');
+}
+function selectPreset(idx,card){
+  selectedIdx=idx;
   document.querySelectorAll('#tab-route .route-card').forEach(c=>c.classList.remove('selected'));
-  card.classList.add('selected'); drawRoutes();
-  map.panTo(routePaths[idx][Math.floor(routePaths[idx].length/2)]);
+  card.classList.add('selected'); drawPresets();
+  map.panTo(presets[idx][Math.floor(presets[idx].length/2)]);
 }
-
-function focusMarker(idx) {
+function focusMarker(idx){
   const f=facilities[idx];
-  map.panTo(new kakao.maps.LatLng(f.lat,f.lng)); map.setLevel(3);
-  kakao.maps.event.trigger(markers[idx],'click');
+  map.panTo(new kakao.maps.LatLng(f.lat,f.lng));map.setLevel(3);
+  kakao.maps.event.trigger(fMarkers[idx],'click');
 }
-
-function startNavigation() {
-  alert(`🧭 ${["남대문로 → 퇴계로","을지로 → 충무로","세종대로 → 지하보도"][selectedRouteIdx]} 경로 안내를 시작합니다.\n\n걱정마路가 안전하게 안내해 드릴게요!`);
+function startNav(){
+  alert(`🧭 ${["남대문로 → 퇴계로","을지로 → 충무로","세종대로 → 지하보도"][selectedIdx]} 경로 안내를 시작합니다.\n\n걱정마路가 안전하게 안내해 드릴게요!`);
 }
-
-function switchTab(tab,btn) {
-  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active')); btn.classList.add('active');
-  ['route','data','facility'].forEach(t=>{ document.getElementById('tab-'+t).style.display=t===tab?'block':'none'; });
-  document.getElementById('map').style.height=tab==='route'?'260px':'180px';
+function switchTab(tab,btn){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));btn.classList.add('active');
+  ['route','data','facility'].forEach(t=>{document.getElementById('tab-'+t).style.display=t===tab?'block':'none';});
+  document.getElementById('map').style.height=tab==='route'?'220px':'180px';
   kakao.maps.event.trigger(map,'resize');
 }
 </script>
