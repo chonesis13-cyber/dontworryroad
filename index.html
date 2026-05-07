@@ -359,38 +359,60 @@ let facilities = [];
 
 // 지하철 역사 편의시설 → 앱 데이터 형식으로 변환
 function parseSubwayFacility(item) {
-  const hasElevator   = item.ELEV_COUNT > 0;
-  const hasWheelchair = item.ESCALATOR_COUNT > 0;
-  let subtype = '지하철역'; let label = '🚇'; let color = '#1976A8';
-  if (hasElevator)   { subtype = '엘리베이터'; label = '🛗'; color = '#2E8B57'; }
-  if (hasWheelchair) { subtype = '휠체어리프트'; label = '♿'; color = '#2E6BA8'; }
+  const hasElevator   = (item.ELVT || 0) > 0;
+  const hasWheelchair = (item.WHELCHR_LIFT || 0) > 0;
+  let subtype='지하철역', label='🚇', color='#1976A8';
+  if(hasElevator)  { subtype='엘리베이터';  label='🛗'; color='#2E8B57'; }
+  if(hasWheelchair){ subtype='휠체어리프트'; label='♿'; color='#2E6BA8'; }
   return {
-    lat: parseFloat(item.LAT) || 0, lng: parseFloat(item.LNG) || 0,
-    name: item.STATN_NM + ' (' + item.LINE_NUM + '호선)',
+    lat: 0, lng: 0, // 카카오 검색으로 보정
+    name: item.SBWY_STNS_NM + ' (' + item.SBWY_ROUT_LN + ')',
+    searchName: item.SBWY_STNS_NM + '역',
     type: 'disability', subtype, label, color,
     accessible: hasElevator || hasWheelchair,
-    elevator: item.ELEV_COUNT || 0, escalator: item.ESCALATOR_COUNT || 0,
+    elevator: item.ELVT || 0,
+    escalator: item.ESCLT || 0,
+    wheelchair: item.WHELCHR_LIFT || 0,
     category: 'subway',
   };
 }
 
 // 학교 장애인 편의시설 → 앱 데이터 형식으로 변환
 function parseSchoolFacility(item) {
-  const hasRamp      = item.RAMP_AT === 'Y';
-  const hasElevator  = item.ELVTR_AT === 'Y';
-  const hasToilet    = item.DSBLTY_TOILET_AT === 'Y';
-  let subtype = '학교대피소'; let label = '🏫'; let color = '#C0622A';
-  if (hasElevator) { subtype = '엘리베이터'; label = '🛗'; color = '#5C7A3E'; }
-  else if (hasRamp){ subtype = '경사로';     label = '♿'; color = '#7B5EA7'; }
+  const hasRamp     = item.RAMP_AT === 'Y';
+  const hasElevator = item.ELVTR_AT === 'Y';
+  const hasToilet   = item.DSBLTY_TOILET_AT === 'Y';
+  let subtype='학교대피소', label='🏫', color='#C0622A';
+  if(hasElevator){ subtype='엘리베이터'; label='🛗'; color='#5C7A3E'; }
+  else if(hasRamp){ subtype='경사로';   label='♿'; color='#7B5EA7'; }
   return {
-    lat: parseFloat(item.LAT) || 0, lng: parseFloat(item.LNG) || 0,
+    lat: 0, lng: 0,
     name: item.SCHUL_NM || '학교',
+    searchName: item.SCHUL_NM,
     type: 'school', subtype, label, color,
     accessible: hasRamp || hasElevator,
     elevator: hasElevator ? 1 : 0, escalator: 0,
     ramp: hasRamp, toilet: hasToilet,
     category: 'school',
   };
+}
+
+// 좌표 없는 데이터 → 카카오 장소검색으로 좌표 보정 (상위 15개)
+async function enrichWithCoords(items) {
+  const enriched = [];
+  for(const item of items.slice(0, 15)) {
+    await new Promise(resolve => {
+      ps.keywordSearch(item.searchName, (res, status) => {
+        if(status === kakao.maps.services.Status.OK && res[0]) {
+          item.lat = parseFloat(res[0].y);
+          item.lng = parseFloat(res[0].x);
+        }
+        enriched.push(item);
+        resolve();
+      }, {size:1});
+    });
+  }
+  return enriched;
 }
 
 const PROXY = 'https://dontworryroad.vercel.app/api/proxy?url=';
@@ -401,7 +423,8 @@ async function loadSubwayFacilities() {
     const res = await fetch(PROXY + apiUrl);
     const json = await res.json();
     const rows = json?.OdblrDspsnCvntl?.row || [];
-    return rows.filter(r=>r.LAT&&r.LNG&&parseFloat(r.LAT)>0).map(parseSubwayFacility);
+    const parsed = rows.map(parseSubwayFacility);
+    return await enrichWithCoords(parsed);
   } catch(e) { return []; }
 }
 
@@ -411,7 +434,8 @@ async function loadSchoolFacilities() {
     const res = await fetch(PROXY + apiUrl);
     const json = await res.json();
     const rows = json?.schoolInfoPwdbs?.row || [];
-    return rows.filter(r=>r.LAT&&r.LNG&&parseFloat(r.LAT)>0).map(parseSchoolFacility);
+    const parsed = rows.map(parseSchoolFacility);
+    return await enrichWithCoords(parsed);
   } catch(e) { return []; }
 }
 
