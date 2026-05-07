@@ -393,10 +393,12 @@ function parseSchoolFacility(item) {
   };
 }
 
+const PROXY = 'https://dontworryroad.vercel.app/api/proxy?url=';
+
 async function loadSubwayFacilities() {
   try {
-    const url = `https://openapi.seoul.go.kr:8088/${SEOUL_API_KEY}/json/OdblrDspsnCvntl/1/100/`;
-    const res = await fetch(url);
+    const apiUrl = encodeURIComponent(`http://openapi.seoul.go.kr:8088/${SEOUL_API_KEY}/json/OdblrDspsnCvntl/1/100/`);
+    const res = await fetch(PROXY + apiUrl);
     const json = await res.json();
     const rows = json?.OdblrDspsnCvntl?.row || [];
     return rows.filter(r=>r.LAT&&r.LNG&&parseFloat(r.LAT)>0).map(parseSubwayFacility);
@@ -405,8 +407,8 @@ async function loadSubwayFacilities() {
 
 async function loadSchoolFacilities() {
   try {
-    const url = `https://openapi.seoul.go.kr:8088/${SCHOOL_API_KEY}/json/schoolInfoPwdbs/1/100/`;
-    const res = await fetch(url);
+    const apiUrl = encodeURIComponent(`http://openapi.seoul.go.kr:8088/${SCHOOL_API_KEY}/json/schoolInfoPwdbs/1/100/`);
+    const res = await fetch(PROXY + apiUrl);
     const json = await res.json();
     const rows = json?.schoolInfoPwdbs?.row || [];
     return rows.filter(r=>r.LAT&&r.LNG&&parseFloat(r.LAT)>0).map(parseSchoolFacility);
