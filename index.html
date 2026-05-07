@@ -395,20 +395,20 @@ function parseSchoolFacility(item) {
 
 async function loadSubwayFacilities() {
   try {
-    const url = `https://data.seoul.go.kr/SeoulRTOpenAPI/seoul/api/rest/subwayStationMaster/getSubwayStationMasterInfo?KEY=${SEOUL_API_KEY}&TYPE=json&pIndex=1&pSize=100`;
+    const url = `https://openapi.seoul.go.kr:8088/${SEOUL_API_KEY}/json/OdblrDspsnCvntl/1/100/`;
     const res = await fetch(url);
     const json = await res.json();
-    const rows = json?.getSubwayStationMasterInfo?.[1]?.row || [];
+    const rows = json?.OdblrDspsnCvntl?.row || [];
     return rows.filter(r=>r.LAT&&r.LNG&&parseFloat(r.LAT)>0).map(parseSubwayFacility);
   } catch(e) { return []; }
 }
 
 async function loadSchoolFacilities() {
   try {
-    const url = `https://data.seoul.go.kr/SeoulRTOpenAPI/seoul/api/rest/schoolDisabledFacility/getSchoolDisabledFacilityInfo?KEY=${SCHOOL_API_KEY}&TYPE=json&pIndex=1&pSize=100`;
+    const url = `https://openapi.seoul.go.kr:8088/${SCHOOL_API_KEY}/json/schoolInfoPwdbs/1/100/`;
     const res = await fetch(url);
     const json = await res.json();
-    const rows = json?.getSchoolDisabledFacilityInfo?.[1]?.row || [];
+    const rows = json?.schoolInfoPwdbs?.row || [];
     return rows.filter(r=>r.LAT&&r.LNG&&parseFloat(r.LAT)>0).map(parseSchoolFacility);
   } catch(e) { return []; }
 }
