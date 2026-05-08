@@ -548,11 +548,11 @@ const ELDERLY_OLWI_KEY = '6e435a664f61737434354154454a54'; // 노인주거
 // 노인복지시설 → 앱 데이터 형식으로 변환
 function parseElderlyFacility(item, subtype, label, color) {
   return {
-    lat: parseFloat(item.Y_COORD||item.LAT) || 0,
-    lng: parseFloat(item.X_COORD||item.LNG) || 0,
-    name: item.FCLTY_NM || item.NM || '노인복지시설',
-    searchName: item.FCLTY_NM || item.NM || '노인복지시설',
-    addr: item.RDNWHOLE_ADDR || item.LNNO_ADRES || '',
+    lat: 0, lng: 0,
+    name: item.FCLT_NM || '노인복지시설',
+    searchName: item.FCLT_NM,
+    addr: item.FCLT_ADDR || '',
+    gu: item.JRSD_SGG_NM || '',
     type: 'elderly', subtype, label, color,
     accessible: true,
     elevator: 0, escalator: 0,
@@ -560,16 +560,51 @@ function parseElderlyFacility(item, subtype, label, color) {
   };
 }
 
+// 주소 → 좌표 변환 (카카오 geocoder)
+async function addrToCoords(items) {
+  const results = [];
+  const batchSize = 10;
+  for(let i=0; i<items.length; i+=batchSize) {
+    const batch = items.slice(i, i+batchSize);
+    const batchResults = await Promise.all(batch.map(item => new Promise(resolve => {
+      const timeout = setTimeout(()=>resolve(item), 3000);
+      // 주소로 먼저 시도, 실패 시 시설명으로 검색
+      geocoder.addressSearch(item.addr, (res, status) => {
+        clearTimeout(timeout);
+        if(status === kakao.maps.services.Status.OK && res[0]) {
+          item.lat = parseFloat(res[0].y);
+          item.lng = parseFloat(res[0].x);
+          resolve(item);
+        } else {
+          // 주소 실패 시 시설명 + 구 이름으로 키워드 검색
+          const timeout2 = setTimeout(()=>resolve(item), 3000);
+          ps.keywordSearch(item.searchName + ' ' + item.gu, (res2, status2) => {
+            clearTimeout(timeout2);
+            if(status2 === kakao.maps.services.Status.OK && res2[0]) {
+              item.lat = parseFloat(res2[0].y);
+              item.lng = parseFloat(res2[0].x);
+            }
+            resolve(item);
+          }, {size:1});
+        }
+      });
+    })));
+    results.push(...batchResults);
+    if(i+batchSize < items.length) await new Promise(r=>setTimeout(r,200));
+  }
+  return results;
+}
+
 async function loadElderlyFacilities() {
   try {
-    const urls = [
+    const apis = [
       { key: ELDERLY_ROWI_KEY, svc: 'fcltOpenInfo_ROWI', subtype: '재가노인복지시설', label: '🏠', color: '#7B5EA7' },
       { key: ELDERLY_OMI_KEY,  svc: 'fcltOpenInfo_OMI',  subtype: '노인의료복지시설', label: '🏥', color: '#C0622A' },
       { key: ELDERLY_OLWI_KEY, svc: 'fcltOpenInfo_OLWI', subtype: '노인주거복지시설', label: '🏡', color: '#A0775A' },
     ];
-    const allRows = await Promise.all(urls.map(async ({key, svc, subtype, label, color}) => {
+    const allRows = await Promise.all(apis.map(async ({key, svc, subtype, label, color}) => {
       try {
-        const apiUrl = encodeURIComponent(`http://openapi.seoul.go.kr:8088/${key}/json/${svc}/1/100/`);
+        const apiUrl = encodeURIComponent(`http://openapi.seoul.go.kr:8088/${key}/json/${svc}/1/50/`);
         const res = await fetch(PROXY + apiUrl);
         const json = await res.json();
         const rows = json?.[svc]?.row || [];
@@ -577,11 +612,9 @@ async function loadElderlyFacilities() {
       } catch(e) { return []; }
     }));
     const combined = allRows.flat();
-    // 좌표 없는 항목은 카카오로 보정
-    const noCoord = combined.filter(f => !f.lat || f.lat === 0);
-    const hasCoord = combined.filter(f => f.lat && f.lat !== 0);
-    const enriched = await enrichWithCoords(noCoord);
-    return [...hasCoord, ...enriched].filter(f => f.lat !== 0 && f.lng !== 0);
+    // 주소 기반 좌표 보정
+    const enriched = await addrToCoords(combined);
+    return enriched.filter(f => f.lat !== 0 && f.lng !== 0);
   } catch(e) { return []; }
 }
 
