@@ -373,7 +373,8 @@ body.font-small .tab{font-size:10px;}
     <div class="legend-item"><div class="legend-line" style="background:#2E8B57;"></div>안전</div>
     <div class="legend-item">🛗 엘리베이터</div>
     <div class="legend-item">♿ 휠체어</div>
-    <div class="legend-item">🏫 학교</div>
+    <div class="legend-item">☀️ 무더위</div>
+    <div class="legend-item">🧊 한파</div>
   </div>
   <!-- 드래그 핸들 -->
   <div id="map-resize-handle" title="드래그해서 지도 크기 조절">
@@ -439,8 +440,10 @@ body.font-small .tab{font-size:10px;}
       <div class="data-card" style="--dc-color:#7B5EA7;border-color:#7B5EA744;"><div class="data-card-icon">🏠</div><div class="data-card-label">노인복지시설</div><div class="data-card-val" id="cnt-elderly">-</div><div class="data-card-sub">재가·의료·주거</div></div>
     </div>
     <div class="data-grid">
-      <div class="data-card" style="--dc-color:#5C7A3E;border-color:#5C7A3E44;"><div class="data-card-icon">🏫</div><div class="data-card-label">학교 대피시설</div><div class="data-card-val" id="cnt-school">-</div><div class="data-card-sub">경사로·엘리베이터</div></div>
-      <div class="data-card" style="--dc-color:#FF8C00;border-color:#FF8C0044;"><div class="data-card-icon">🚶</div><div class="data-card-label">BO30 유동인구</div><div class="data-card-val" id="cnt-people">-</div><div class="data-card-sub">S-DoT 실시간</div></div>
+      <div class="data-card" style="--dc-color:#FF6B35;border-color:#FF6B3544;"><div class="data-card-icon">☀️🧊</div><div class="data-card-label">무더위·한파쉼터</div><div class="data-card-val" id="cnt-shelter">-</div><div class="data-card-sub">계절별 자동표시</div></div>
+    </div>
+    <div class="data-grid">
+      <div class="data-card" style="--dc-color:#FF8C00;border-color:#FF8C0044;"><div class="data-card-icon">🚶</div><div class="data-card-label">유동인구</div><div class="data-card-val" id="cnt-people">-</div><div class="data-card-sub">S-DoT 실시간</div></div>
     </div>
     <div class="road-block">
       <div class="road-title">도로별 유동인구 현황 (BO30)</div>
@@ -476,12 +479,9 @@ body.font-small .tab{font-size:10px;}
       </div>
     </div>
     <div class="fac-section">
-      <div class="fac-title" style="color:#5C7A3E;">🏫 학교 장애인 편의시설</div>
-      <div id="fac-school">
-        <div style="text-align:center;padding:20px;color:var(--dim);font-size:13px;">🔄 불러오는 중...</div>
-      </div>
+      <div class="fac-title" style="color:#FF6B35;">☀️ 무더위쉼터 / 🧊 한파쉼터</div>
+      <div id="fac-shelter"><div style="text-align:center;padding:20px;color:var(--dim);font-size:13px;">🔄 불러오는 중...</div></div>
     </div>
-    <div class="ai-tip">
       <div class="ai-tip-title">💡 걱정마路 AI 대피 조언</div>
       <div class="ai-tip-body">현재 강우량(47mm)과 세종대로 혼잡도(85%)를 고려했을 때, 엘리베이터가 있는 <strong>서울역·시청역</strong> 경유 경로가 교통약자에게 가장 안전합니다.</div>
     </div>
@@ -494,8 +494,63 @@ const PROXY = 'https://dontworryroad.vercel.app/api/proxy?url='; // 프록시
 const SEOUL_API_KEY  = '414d6652616173743130364f76445672'; // 지하철
 const SCHOOL_API_KEY = '726c4e6a7161737439396d61424148';   // 학교
 const PEOPLE_API_KEY = '49685068556173743131325747754965'; // 유동인구
+const HEAT_API_KEY   = '52696570646173743332646c626669';   // 무더위쉼터
+const COLD_API_KEY   = '634d707653617374383154536d634e';   // 한파쉼터
 let facilities = [];
 let currentCongestion = null; // 실시간 혼잡도
+
+// 무더위쉼터/한파쉼터 파싱
+function parseShelterFacility(item, type) {
+  const isHeat = type === 'heat';
+  return {
+    lat: parseFloat(item.REFINE_WGS84_LAT) || 0,
+    lng: parseFloat(item.REFINE_WGS84_LOGT) || 0,
+    name: item.RESTAREA_NM || item.FCLTY_NM || (isHeat ? '무더위쉼터' : '한파쉼터'),
+    searchName: item.RESTAREA_NM || item.FCLTY_NM || '',
+    addr: item.REFINE_ROADNM_ADDR || item.ADRES || '',
+    type: type,
+    subtype: isHeat ? '무더위쉼터' : '한파쉼터',
+    label: isHeat ? '☀️' : '🧊',
+    color: isHeat ? '#FF6B35' : '#4A90D9',
+    accessible: true,
+    elevator: 0, escalator: 0,
+    category: type,
+  };
+}
+
+async function loadHeatShelters() {
+  try {
+    const apiUrl = encodeURIComponent(`http://openapi.seoul.go.kr:8088/${HEAT_API_KEY}/json/TbGtnHwcwP/1/300/`);
+    const res = await fetch(PROXY + apiUrl);
+    const json = await res.json();
+    const rows = json?.TbGtnHwcwP?.row || [];
+    dbg(`무더위쉼터 raw: ${rows.length}건`);
+    return rows
+      .map(r => parseShelterFacility(r, 'heat'))
+      .filter(f => f.lat !== 0 && f.lng !== 0);
+  } catch(e) { dbg('⚠ 무더위쉼터 오류: ' + e.message, 'warn'); return []; }
+}
+
+async function loadColdShelters() {
+  try {
+    const apiUrl = encodeURIComponent(`http://openapi.seoul.go.kr:8088/${COLD_API_KEY}/json/TbGtnCwP/1/300/`);
+    const res = await fetch(PROXY + apiUrl);
+    const json = await res.json();
+    const rows = json?.TbGtnCwP?.row || [];
+    dbg(`한파쉼터 raw: ${rows.length}건`);
+    return rows
+      .map(r => parseShelterFacility(r, 'cold'))
+      .filter(f => f.lat !== 0 && f.lng !== 0);
+  } catch(e) { dbg('⚠ 한파쉼터 오류: ' + e.message, 'warn'); return []; }
+}
+
+// 계절 판단 — 현재 월 기준
+function getCurrentSeason() {
+  const m = new Date().getMonth() + 1;
+  if(m >= 6 && m <= 9)  return 'summer'; // 6~9월 여름
+  if(m >= 11 || m <= 3) return 'winter'; // 11~3월 겨울
+  return 'normal';
+}
 
 // 지하철 역사 편의시설 → 앱 데이터 형식으로 변환
 function parseSubwayFacility(item) {
@@ -519,20 +574,22 @@ function parseSubwayFacility(item) {
 
 // 학교 장애인 편의시설 → 앱 데이터 형식으로 변환
 function parseSchoolFacility(item) {
-  const hasRamp     = item.RAMP_AT === 'Y';
-  const hasElevator = item.ELVTR_AT === 'Y';
-  const hasToilet   = item.DSBLTY_TOILET_AT === 'Y';
+  const hasElevator = item.STAIR_ELVTR_EN === '적정설치';
+  const hasRamp     = item.ENTRC_ACS_INSTL_YN === '적정설치';
+  const hasToilet   = item.PWDBS_CLST_INSTL_YN === '적정설치';
+  const hasBraille  = item.BRL_BLCK_INSTL_YN === '적정설치';
   let subtype='학교대피소', label='🏫', color='#C0622A';
   if(hasElevator){ subtype='엘리베이터'; label='🛗'; color='#5C7A3E'; }
-  else if(hasRamp){ subtype='경사로';   label='♿'; color='#7B5EA7'; }
+  else if(hasRamp){ subtype='경사로'; label='♿'; color='#7B5EA7'; }
+  const gu = item.RGN ? item.RGN.replace('서울특별시 ','') : '';
   return {
     lat: 0, lng: 0,
-    name: item.SCHUL_NM || '학교',
-    searchName: item.SCHUL_NM,
+    name: item.SCHL_NM || '학교',
+    searchName: (item.SCHL_NM || '학교') + ' ' + gu,
     type: 'school', subtype, label, color,
     accessible: hasRamp || hasElevator,
     elevator: hasElevator ? 1 : 0, escalator: 0,
-    ramp: hasRamp, toilet: hasToilet,
+    ramp: hasRamp, toilet: hasToilet, braille: hasBraille,
     category: 'school',
   };
 }
@@ -676,15 +733,24 @@ async function loadAllFacilities() {
   statusEl.style.display = 'block';
   dbg('🔄 시설 데이터 로드 시작');
 
-  const [subwayData, schoolData, elderlyData] = await Promise.all([
+  const season = getCurrentSeason();
+  dbg(`현재 계절: ${season}`);
+
+  // 계절별 쉼터 선택
+  const shelterPromise = season === 'summer' ? loadHeatShelters()
+                       : season === 'winter' ? loadColdShelters()
+                       : Promise.all([loadHeatShelters(), loadColdShelters()]).then(([h,c])=>[...h,...c]);
+
+  const [subwayData, elderlyData, shelterData] = await Promise.all([
     loadSubwayFacilities(),
-    loadSchoolFacilities(),
     loadElderlyFacilities(),
+    shelterPromise,
   ]);
 
-  dbg(`지하철:${subwayData.length} 학교:${schoolData.length} 노인:${elderlyData.length}`);
+  dbg(`지하철:${subwayData.length} 노인:${elderlyData.length} 쉼터:${shelterData.length}`);
 
-  const combined = [...subwayData, ...schoolData, ...elderlyData].filter(f => f.lat !== 0 && f.lng !== 0);
+  const combined = [...subwayData, ...elderlyData, ...shelterData]
+    .filter(f => f.lat !== 0 && f.lng !== 0);
 
   if (combined.length === 0) {
     dbg('❌ 모든 API 실패 — 샘플 데이터 사용', 'error');
@@ -703,18 +769,19 @@ async function loadAllFacilities() {
   addFacMarkers();
 
   const subCount     = combined.filter(f=>f.category==='subway').length;
-  const schoolCount  = combined.filter(f=>f.category==='school').length;
   const elderlyCount = combined.filter(f=>f.category==='elderly').length;
+  const shelterCount = combined.filter(f=>f.category==='heat'||f.category==='cold').length;
 
   const cntSubway  = document.getElementById('cnt-subway');
-  const cntSchool  = document.getElementById('cnt-school');
   const cntElderly = document.getElementById('cnt-elderly');
+  const cntShelter = document.getElementById('cnt-shelter');
   if(cntSubway)  cntSubway.textContent  = subCount + '곳';
-  if(cntSchool)  cntSchool.textContent  = schoolCount + '곳';
   if(cntElderly) cntElderly.textContent = elderlyCount + '곳';
+  if(cntShelter) cntShelter.textContent = shelterCount + '곳';
 
+  const shelterLabel = season==='summer'?'☀️ 무더위쉼터':season==='winter'?'🧊 한파쉼터':'☀️🧊 쉼터';
   dbg(`✅ 총 ${combined.length}곳 로드 완료`);
-  statusEl.innerHTML = `✅ 지하철 ${subCount}곳 · 학교 ${schoolCount}곳 · 노인시설 ${elderlyCount}곳 로드 완료`;
+  statusEl.innerHTML = `✅ 지하철 ${subCount} · 노인 ${elderlyCount} · ${shelterLabel} ${shelterCount}곳 로드 완료`;
   setTimeout(()=>statusEl.style.display='none', 3000);
 }
 
@@ -725,9 +792,6 @@ function loadSampleFacilities() {
     {lat:37.5636,lng:126.9836,name:"을지로입구 (2호선)",             type:"disability",subtype:"엘리베이터",  label:"🛗",color:"#2E8B57",accessible:true, elevator:2,escalator:2,category:'subway'},
     {lat:37.5700,lng:126.9820,name:"종로3가 (1·3·5호선)",            type:"disability",subtype:"휠체어리프트",label:"♿",color:"#2E6BA8",accessible:true, elevator:3,escalator:2,category:'subway'},
     {lat:37.5665,lng:126.9779,name:"광화문 (5호선)",                 type:"disability",subtype:"엘리베이터",  label:"🛗",color:"#2E8B57",accessible:true, elevator:2,escalator:2,category:'subway'},
-    {lat:37.5620,lng:126.9910,name:"을지로3가 초등학교",             type:"school",    subtype:"경사로",      label:"♿",color:"#7B5EA7",accessible:true, elevator:0,escalator:0,ramp:true, toilet:true,  category:'school'},
-    {lat:37.5575,lng:126.9850,name:"남산 중학교",                    type:"school",    subtype:"엘리베이터",  label:"🛗",color:"#5C7A3E",accessible:true, elevator:1,escalator:0,ramp:true, toilet:true,  category:'school'},
-    {lat:37.5648,lng:126.9760,name:"서울 고등학교",                  type:"school",    subtype:"학교대피소",  label:"🏫",color:"#C0622A",accessible:false,elevator:0,escalator:0,ramp:false,toilet:false, category:'school'},
   ];
   addFacMarkers();
 }
@@ -1147,7 +1211,7 @@ function addFacMarkers(){
   };
   renderList('fac-subway',  facilities.filter(f=>f.category==='subway'));
   renderList('fac-elderly', facilities.filter(f=>f.category==='elderly'));
-  renderList('fac-school',  facilities.filter(f=>f.category==='school'));
+  renderList('fac-shelter', facilities.filter(f=>f.category==='heat'||f.category==='cold'));
 }
 
 // ── 지도 크기 조절 ────────────────────────────────────
