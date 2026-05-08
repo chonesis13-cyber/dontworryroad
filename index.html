@@ -407,30 +407,29 @@ body.font-small .tab{font-size:10px;}
       <div style="height:8px;"></div>
     </div>
 
-    <div class="section-label">기본 추천 경로 (샘플)</div>
-    <div class="route-card selected" style="--card-color:#2E8B57" onclick="selectPreset(0,this)">
-      <div class="route-header">
-        <div><div class="route-name">최단 안전 루트</div><div class="route-sub">남대문로 → 퇴계로</div></div>
-        <div class="score-badge">94점</div>
+    <div id="route-guide" style="background:var(--white);border:2px solid var(--border);border-radius:14px;padding:24px 16px;text-align:center;box-shadow:0 1px 4px var(--shadow);">
+      <div style="font-size:36px;margin-bottom:12px;">🧭</div>
+      <div style="font-size:16px;font-weight:900;color:var(--text);margin-bottom:8px;">안전 대피 경로를 찾아드릴게요</div>
+      <div style="font-size:13px;color:var(--dim);line-height:1.7;margin-bottom:16px;">
+        위 검색창에 출발지와 도착지를 입력하면<br>
+        실시간 데이터 기반으로<br>
+        <strong style="color:var(--safe);">주변 대피장소와 안전점수</strong>를 알려드려요
       </div>
-      <div class="route-meta"><span>🕐 18분</span><span>📍 1.2km</span><span class="risk-tag" style="color:#2E8B57">위험도 낮음</span></div>
-      <div class="route-features"><span class="feature-tag">엘리베이터</span><span class="feature-tag">휠체어 경사로</span><span class="feature-tag">대피소 2곳</span></div>
-    </div>
-    <div class="route-card" style="--card-color:#FF8C00" onclick="selectPreset(1,this)">
-      <div class="route-header">
-        <div><div class="route-name">혼잡 우회 루트</div><div class="route-sub">을지로 → 충무로</div></div>
-        <div class="score-badge">78점</div>
+      <div style="display:flex;flex-direction:column;gap:8px;text-align:left;">
+        <div style="background:var(--bg);border-radius:10px;padding:10px 14px;font-size:12px;color:var(--dim);">
+          🚇 지하철 장애인 편의시설 실시간 연동
+        </div>
+        <div style="background:var(--bg);border-radius:10px;padding:10px 14px;font-size:12px;color:var(--dim);">
+          🏠 노인복지시설 3종 실시간 연동
+        </div>
+        <div style="background:var(--bg);border-radius:10px;padding:10px 14px;font-size:12px;color:var(--dim);">
+          🌧 강우량 · 🌡 기온 · 🚶 유동인구 실시간 반영
+        </div>
       </div>
-      <div class="route-meta"><span>🕐 24분</span><span>📍 1.8km</span><span class="risk-tag" style="color:#FF8C00">위험도 보통</span></div>
     </div>
-    <div class="route-card" style="--card-color:#CC3300" onclick="selectPreset(2,this)">
-      <div class="route-header">
-        <div><div class="route-name">실내 대피 루트</div><div class="route-sub">세종대로 → 지하보도</div></div>
-        <div class="score-badge">61점</div>
-      </div>
-      <div class="route-meta"><span>🕐 14분</span><span>📍 0.9km</span><span class="risk-tag" style="color:#CC3300">위험도 높음</span></div>
-    </div>
-    <button class="cta-btn" onclick="startNav()">🧭 선택된 루트로 안내 시작</button>
+    <button class="cta-btn" style="margin-top:12px;" onclick="document.getElementById('origin-input').focus()">
+      📍 출발지 입력하고 시작하기
+    </button>
   </div>
 
   <div id="tab-data" style="display:none">
@@ -752,15 +751,14 @@ window.addEventListener('load',()=>{
   map=new kakao.maps.Map(mapEl,{center:new kakao.maps.LatLng(37.5610,126.9825),level:4});
   ps=new kakao.maps.services.Places();
   geocoder=new kakao.maps.services.Geocoder();
-  drawPresets(); addPresetEndpoints(); buildRoadBars();
+  buildRoadBars();
   loadAllFacilities();
   loadRainfall();
   loadTemperature();
   loadPeopleFlow();
-  setInterval(loadRainfall,    5 * 60 * 1000); // 5분마다
-  setInterval(loadPeopleFlow,  5 * 60 * 1000); // 5분마다
-  setInterval(loadTemperature, 30 * 60 * 1000); // 30분마다
-  // 빈 공간 제거 — 렌더링 완료 후 강제 relayout
+  setInterval(loadRainfall,    5 * 60 * 1000);
+  setInterval(loadPeopleFlow,  5 * 60 * 1000);
+  setInterval(loadTemperature, 30 * 60 * 1000);
   setTimeout(()=>{ map.relayout(); kakao.maps.event.trigger(map,'resize'); }, 100);
   setTimeout(()=>{ map.relayout(); kakao.maps.event.trigger(map,'resize'); }, 500);
 });
