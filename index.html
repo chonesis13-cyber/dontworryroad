@@ -441,7 +441,7 @@ body.font-small .tab{font-size:10px;}
     </div>
     <div class="data-grid">
       <div class="data-card" style="--dc-color:#5C7A3E;border-color:#5C7A3E44;"><div class="data-card-icon">🏫</div><div class="data-card-label">학교 대피시설</div><div class="data-card-val" id="cnt-school">-</div><div class="data-card-sub">경사로·엘리베이터</div></div>
-      <div class="data-card" style="--dc-color:#FF8C00;border-color:#FF8C0044;"><div class="data-card-icon">🚶</div><div class="data-card-label">BO30 유동인구</div><div class="data-card-val">↑85%</div><div class="data-card-sub">세종대로 혼잡</div></div>
+      <div class="data-card" style="--dc-color:#FF8C00;border-color:#FF8C0044;"><div class="data-card-icon">🚶</div><div class="data-card-label">BO30 유동인구</div><div class="data-card-val" id="cnt-people">-</div><div class="data-card-sub">S-DoT 실시간</div></div>
     </div>
     <div class="road-block">
       <div class="road-title">도로별 유동인구 현황 (BO30)</div>
@@ -494,7 +494,9 @@ body.font-small .tab{font-size:10px;}
 const PROXY = 'https://dontworryroad.vercel.app/api/proxy?url='; // 프록시
 const SEOUL_API_KEY  = '414d6652616173743130364f76445672'; // 지하철
 const SCHOOL_API_KEY = '726c4e6a7161737439396d61424148';   // 학교
+const PEOPLE_API_KEY = '49685068556173743131325747754965'; // 유동인구
 let facilities = [];
+let currentCongestion = null; // 실시간 혼잡도
 
 // 지하철 역사 편의시설 → 앱 데이터 형식으로 변환
 function parseSubwayFacility(item) {
@@ -754,8 +756,10 @@ window.addEventListener('load',()=>{
   loadAllFacilities();
   loadRainfall();
   loadTemperature();
-  setInterval(loadRainfall, 5 * 60 * 1000);
-  setInterval(loadTemperature, 30 * 60 * 1000); // 30분마다 기온 갱신
+  loadPeopleFlow();
+  setInterval(loadRainfall,    5 * 60 * 1000); // 5분마다
+  setInterval(loadPeopleFlow,  5 * 60 * 1000); // 5분마다
+  setInterval(loadTemperature, 30 * 60 * 1000); // 30분마다
   // 빈 공간 제거 — 렌더링 완료 후 강제 relayout
   setTimeout(()=>{ map.relayout(); kakao.maps.event.trigger(map,'resize'); }, 100);
   setTimeout(()=>{ map.relayout(); kakao.maps.event.trigger(map,'resize'); }, 500);
@@ -911,27 +915,36 @@ function updateFreezeUI() {
 
 // ── 위험도 점수 계산 ──────────────────────────────────
 function calcRiskScore(nearby, totalM) {
-  // 강우량 점수 (40%) — 낮을수록 안전
+  // 강우량 점수 (30%) — 낮을수록 안전
   const rfVal = parseFloat(document.getElementById('rf-val')?.textContent) || 0;
-  let rainScore = 40;
+  let rainScore = 30;
   if(rfVal >= 30)      rainScore = 0;
-  else if(rfVal >= 10) rainScore = 15;
-  else if(rfVal > 0)   rainScore = 28;
+  else if(rfVal >= 10) rainScore = 10;
+  else if(rfVal > 0)   rainScore = 20;
 
-  // 대피시설 점수 (30%) — 많을수록 안전
-  const shelterScore = Math.min(nearby.length * 10, 30);
-
-  // 거리 점수 (20%) — 짧을수록 안전
-  const distScore = totalM < 500 ? 20 : totalM < 1000 ? 15 : totalM < 2000 ? 10 : 5;
-
-  // 결빙 점수 (10%) — 기온 정상이면 만점
-  let freezeScore = 10;
-  if(currentTemp !== null) {
-    if(currentTemp <= 0)     freezeScore = 0;
-    else if(currentTemp <= 3) freezeScore = 5;
+  // 유동인구 혼잡도 점수 (25%) — 낮을수록 안전
+  let congScore = 25;
+  if(currentCongestion !== null) {
+    if(currentCongestion >= 80)      congScore = 0;
+    else if(currentCongestion >= 60) congScore = 8;
+    else if(currentCongestion >= 40) congScore = 15;
+    else                             congScore = 25;
   }
 
-  const total = rainScore + shelterScore + distScore + freezeScore;
+  // 대피시설 점수 (25%) — 많을수록 안전
+  const shelterScore = Math.min(nearby.length * 8, 25);
+
+  // 거리 점수 (15%) — 짧을수록 안전
+  const distScore = totalM < 500 ? 15 : totalM < 1000 ? 11 : totalM < 2000 ? 7 : 3;
+
+  // 결빙 점수 (5%) — 기온 정상이면 만점
+  let freezeScore = 5;
+  if(currentTemp !== null) {
+    if(currentTemp <= 0)      freezeScore = 0;
+    else if(currentTemp <= 3) freezeScore = 2;
+  }
+
+  const total = rainScore + congScore + shelterScore + distScore + freezeScore;
   return Math.min(100, Math.max(0, total));
 }
 
@@ -1147,6 +1160,61 @@ function toggleMap(){
   document.addEventListener('mouseup',onEnd);
   document.addEventListener('touchend',onEnd);
 })();
+
+// ── S-DoT 유동인구 실시간 API ─────────────────────────
+async function loadPeopleFlow() {
+  try {
+    const apiUrl = encodeURIComponent(`http://openapi.seoul.go.kr:8088/${PEOPLE_API_KEY}/json/sDoTPeople/1/100/`);
+    const res = await fetch(PROXY + apiUrl);
+    const json = await res.json();
+    const rows = json?.sDoTPeople?.row || [];
+    if(rows.length === 0) return;
+
+    // 전체 센서 평균 유동인구 계산
+    const total = rows.reduce((s, r) => s + (parseFloat(r.PBLICTR_CO) || 0), 0);
+    const avg = total / rows.length;
+
+    // 최대값 대비 혼잡도 % 계산
+    const maxVal = Math.max(...rows.map(r => parseFloat(r.PBLICTR_CO) || 0));
+    currentCongestion = maxVal > 0 ? Math.round((avg / maxVal) * 100) : 0;
+
+    // 혼잡 TOP3 도로 추출
+    const top3 = rows
+      .sort((a, b) => (parseFloat(b.PBLICTR_CO)||0) - (parseFloat(a.PBLICTR_CO)||0))
+      .slice(0, 3);
+
+    updateCongestionUI(currentCongestion, top3, rows.length);
+    dbg(`✅ 유동인구 ${rows.length}개 센서 · 혼잡도 ${currentCongestion}%`);
+  } catch(e) {
+    dbg('⚠ 유동인구 API 오류: ' + e.message, 'warn');
+  }
+}
+
+function updateCongestionUI(congestion, top3, total) {
+  // 데이터현황 탭 유동인구 카드 업데이트
+  const card = document.getElementById('cnt-people');
+  if(card) {
+    const color = congestion > 70 ? '#CC3300' : congestion > 45 ? '#FF8C00' : '#2E8B57';
+    card.innerHTML = `<span style="color:${color};font-size:22px;font-weight:900;">↑${congestion}%</span>`;
+  }
+
+  // 도로바 업데이트
+  const roadBars = document.getElementById('road-bars');
+  if(roadBars && top3.length > 0) {
+    roadBars.innerHTML = top3.map(r => {
+      const val = parseFloat(r.PBLICTR_CO) || 0;
+      const pct = Math.round((val / (top3[0].PBLICTR_CO || 1)) * 100);
+      const c = pct > 70 ? '#CC3300' : pct > 45 ? '#FF8C00' : '#2E8B57';
+      return `<div class="road-row">
+        <div class="road-row-top">
+          <span>${r.TRDAR_NM || r.STDR_DE || '측정소'}</span>
+          <span style="color:${c};">${val.toFixed(0)}명</span>
+        </div>
+        <div class="road-bar-bg"><div class="road-bar" style="width:${pct}%;background:${c}"></div></div>
+      </div>`;
+    }).join('') + `<div style="font-size:10px;color:var(--dim);margin-top:6px;">S-DoT 센서 ${total}개소 실시간 측정</div>`;
+  }
+}
 
 // ── 강우량 실시간 API ─────────────────────────────────
 const RAINFALL_KEY = '4b716d55496173743130345a6a4d4648';
