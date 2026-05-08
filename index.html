@@ -186,6 +186,70 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
 .ai-tip-title{font-size:13px;font-weight:800;color:var(--accent);margin-bottom:6px;}
 .ai-tip-body{font-size:12px;color:var(--text);line-height:1.7;}
 .ai-tip-body strong{color:var(--safe);font-weight:800;}
+
+/* 글자 크기 */
+body.font-large{font-size:18px;}
+body.font-large .search-input{font-size:17px;}
+body.font-large .route-name{font-size:17px;}
+body.font-large .fac-name{font-size:17px;}
+body.font-large .s-name{font-size:17px;}
+body.font-large .cta-btn{font-size:19px;padding:18px;}
+body.font-large .tab{font-size:14px;}
+body.font-small .search-input{font-size:12px;}
+body.font-small .tab{font-size:10px;}
+
+/* 글자 크기 조절 바 */
+#font-bar{
+  background:var(--panel);border-bottom:2px solid var(--border);
+  padding:7px 16px;display:flex;align-items:center;gap:10px;flex-shrink:0;
+}
+.font-label{font-size:11px;color:var(--dim);font-weight:600;white-space:nowrap;}
+.font-btn{
+  background:var(--white);border:2px solid var(--border);border-radius:10px;
+  padding:5px 12px;font-family:inherit;cursor:pointer;font-weight:800;
+  transition:all .15s;color:var(--text);
+}
+.font-btn.active{background:var(--safe);border-color:var(--safe);color:#fff;}
+.font-btn:hover{border-color:var(--safe);}
+
+/* SOS 버튼 */
+#sos-btn{
+  position:fixed;bottom:24px;right:16px;z-index:999;
+  width:64px;height:64px;border-radius:50%;
+  background:#CC3300;border:3px solid #fff;
+  color:#fff;font-size:13px;font-weight:900;
+  cursor:pointer;font-family:inherit;
+  box-shadow:0 4px 20px rgba(204,51,0,.5);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;
+  animation:sos-pulse 2s infinite;
+}
+@keyframes sos-pulse{0%,100%{box-shadow:0 4px 20px rgba(204,51,0,.5)}50%{box-shadow:0 4px 28px rgba(204,51,0,.85)}}
+#sos-btn:active{transform:scale(.95);}
+
+/* SOS 모달 */
+#sos-modal{
+  display:none;position:fixed;inset:0;z-index:1000;
+  background:rgba(0,0,0,.55);align-items:center;justify-content:center;
+}
+#sos-modal.open{display:flex;}
+.sos-box{
+  background:#fff;border-radius:20px;padding:24px 20px;
+  width:88%;max-width:360px;box-shadow:0 8px 32px rgba(0,0,0,.25);
+}
+.sos-title{font-size:18px;font-weight:900;color:#CC3300;text-align:center;margin-bottom:6px;}
+.sos-sub{font-size:12px;color:var(--dim);text-align:center;margin-bottom:18px;}
+.sos-call-btn{
+  width:100%;padding:16px;border:none;border-radius:14px;
+  font-size:18px;font-weight:900;font-family:inherit;
+  cursor:pointer;margin-bottom:10px;transition:transform .1s;
+  display:flex;align-items:center;justify-content:center;gap:10px;
+}
+.sos-call-btn:active{transform:scale(.97);}
+.sos-close{
+  width:100%;padding:12px;border:2px solid var(--border);
+  border-radius:14px;background:none;font-size:14px;
+  font-weight:700;color:var(--dim);cursor:pointer;font-family:inherit;margin-top:4px;
+}
 </style>
 </head>
 <body>
@@ -203,6 +267,50 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
     <button class="tab active" onclick="switchTab('route',this)">🧭 대피루트</button>
     <button class="tab" onclick="switchTab('data',this)">📊 데이터현황</button>
     <button class="tab" onclick="switchTab('facility',this)">🏥 시설정보</button>
+  </div>
+</div>
+
+<!-- 글자 크기 조절 바 -->
+<div id="font-bar">
+  <span class="font-label">글자 크기</span>
+  <button class="font-btn" onclick="setFont('small')">작게</button>
+  <button class="font-btn active" onclick="setFont('normal')">보통</button>
+  <button class="font-btn" onclick="setFont('large')">크게</button>
+</div>
+
+<!-- SOS 버튼 -->
+<button id="sos-btn" onclick="openSOS()">
+  <span style="font-size:22px;">🆘</span>
+  <span>SOS</span>
+</button>
+
+<!-- SOS 모달 -->
+<div id="sos-modal" onclick="closeSOS()">
+  <div class="sos-box" onclick="event.stopPropagation()">
+    <div class="sos-title">🆘 긴급 연락</div>
+    <div class="sos-sub">아래 버튼을 눌러 바로 전화하세요</div>
+    <button class="sos-call-btn" style="background:#CC3300;color:#fff;" onclick="callNumber('119')">
+      <span style="font-size:24px;">🚑</span>
+      <div style="text-align:left;">
+        <div style="font-size:20px;">119 소방·구급</div>
+        <div style="font-size:12px;font-weight:400;opacity:.85;">화재·응급환자·구조</div>
+      </div>
+    </button>
+    <button class="sos-call-btn" style="background:#1A56A0;color:#fff;" onclick="callNumber('112')">
+      <span style="font-size:24px;">🚔</span>
+      <div style="text-align:left;">
+        <div style="font-size:20px;">112 경찰</div>
+        <div style="font-size:12px;font-weight:400;opacity:.85;">범죄·사고·위험상황</div>
+      </div>
+    </button>
+    <button class="sos-call-btn" style="background:#2E8B57;color:#fff;" onclick="callNumber('120')">
+      <span style="font-size:24px;">📞</span>
+      <div style="text-align:left;">
+        <div style="font-size:20px;">120 서울시 다산콜</div>
+        <div style="font-size:12px;font-weight:400;opacity:.85;">재난·안전 민원상담</div>
+      </div>
+    </button>
+    <button class="sos-close" onclick="closeSOS()">닫기</button>
   </div>
 </div>
 
@@ -807,6 +915,27 @@ function toggleMap(){
   document.addEventListener('mouseup',onEnd);
   document.addEventListener('touchend',onEnd);
 })();
+
+// ── SOS ───────────────────────────────────────────────
+function openSOS(){ document.getElementById('sos-modal').classList.add('open'); }
+function closeSOS(){ document.getElementById('sos-modal').classList.remove('open'); }
+function callNumber(num){ window.location.href = 'tel:' + num; }
+
+// ── 글자 크기 ──────────────────────────────────────────
+function setFont(size) {
+  document.body.classList.remove('font-small','font-large');
+  if(size==='large') document.body.classList.add('font-large');
+  if(size==='small') document.body.classList.add('font-small');
+  document.querySelectorAll('.font-btn').forEach(b => {
+    b.classList.toggle('active', b.textContent === {small:'작게',normal:'보통',large:'크게'}[size]);
+  });
+  localStorage.setItem('fontSize', size);
+}
+// 저장된 글자 크기 복원
+window.addEventListener('load', ()=>{ 
+  const saved = localStorage.getItem('fontSize');
+  if(saved) setFont(saved);
+});
 
 function locateMe(){
   const btn=document.getElementById('loc-btn');
