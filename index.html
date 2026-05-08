@@ -503,17 +503,19 @@ let currentCongestion = null; // 실시간 혼잡도
 function parseShelterFacility(item, type) {
   const isHeat = type === 'heat';
   return {
-    lat: parseFloat(item.REFINE_WGS84_LAT) || 0,
-    lng: parseFloat(item.REFINE_WGS84_LOGT) || 0,
-    name: item.RESTAREA_NM || item.FCLTY_NM || (isHeat ? '무더위쉼터' : '한파쉼터'),
-    searchName: item.RESTAREA_NM || item.FCLTY_NM || '',
-    addr: item.REFINE_ROADNM_ADDR || item.ADRES || '',
+    lat: parseFloat(item.LAT) || 0,
+    lng: parseFloat(item.LON) || 0,
+    name: item.R_AREA_NM || (isHeat ? '무더위쉼터' : '한파쉼터'),
+    searchName: item.R_AREA_NM || '',
+    addr: item.R_DETL_ADD || item.LOTNO_ADDR || '',
     type: type,
     subtype: isHeat ? '무더위쉼터' : '한파쉼터',
     label: isHeat ? '☀️' : '🧊',
     color: isHeat ? '#FF6B35' : '#4A90D9',
     accessible: true,
     elevator: 0, escalator: 0,
+    capacity: item.USE_PRNB || 0, // 수용인원
+    facilityType: item.FACILITY_TYPE2 || '',
     category: type,
   };
 }
@@ -1133,7 +1135,7 @@ function addFacMarkers(){
     });
     const iwContent=`<div style="padding:7px 12px;font-size:12px;font-weight:700;background:#FFF;color:#2F4F4F;border-radius:8px;border:2px solid ${color};line-height:1.5;">
       ${f.label} ${f.name}<br>
-      <span style="font-size:10px;color:#7A9090;">${f.subtype}${f.elevator>0?' · 엘리베이터 '+f.elevator+'대':''}${f.escalator>0?' · 에스컬레이터 '+f.escalator+'대':''}${f.ramp?' · 경사로':''}${f.toilet?' · 장애인화장실':''}</span>
+      <span style="font-size:10px;color:#7A9090;">${f.subtype}${f.elevator>0?' · 엘리베이터 '+f.elevator+'대':''}${f.escalator>0?' · 에스컬레이터 '+f.escalator+'대':''}${f.ramp?' · 경사로':''}${f.toilet?' · 장애인화장실':''}${f.capacity>0?' · 수용 '+f.capacity+'명':''}${f.facilityType?' · '+f.facilityType:''}</span>
     </div>`;
     const iw=new kakao.maps.InfoWindow({content:iwContent,removable:true});
     kakao.maps.event.addListener(m,'click',()=>iw.open(map,m));
