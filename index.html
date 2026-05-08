@@ -397,29 +397,37 @@ function parseSchoolFacility(item) {
   };
 }
 
-// 좌표 없는 데이터 → 카카오 장소검색으로 좌표 보정 (상위 15개)
+// 좌표 없는 데이터 → 카카오 장소검색으로 좌표 보정 (병렬 처리)
 async function enrichWithCoords(items) {
-  const enriched = [];
-  for(const item of items.slice(0, 15)) {
-    await new Promise(resolve => {
+  // 배치 처리 — 한번에 10개씩
+  const results = [];
+  const batchSize = 10;
+  for(let i=0; i<items.length; i+=batchSize) {
+    const batch = items.slice(i, i+batchSize);
+    const batchResults = await Promise.all(batch.map(item => new Promise(resolve => {
+      const timeout = setTimeout(()=>resolve(item), 3000);
       ps.keywordSearch(item.searchName, (res, status) => {
-        if(status === kakao.maps.services.Status.OK && res[0]) {
+        clearTimeout(timeout);
+        if(status===kakao.maps.services.Status.OK && res[0]) {
           item.lat = parseFloat(res[0].y);
           item.lng = parseFloat(res[0].x);
         }
-        enriched.push(item);
-        resolve();
+        resolve(item);
       }, {size:1});
-    });
+    })));
+    results.push(...batchResults);
+    // 배치 사이 짧은 대기 (카카오 API 부하 방지)
+    if(i+batchSize < items.length) await new Promise(r=>setTimeout(r,200));
   }
-  return enriched;
+  return results;
 }
 
 const PROXY = 'https://dontworryroad.vercel.app/api/proxy?url=';
 
 async function loadSubwayFacilities() {
   try {
-    const apiUrl = encodeURIComponent(`http://openapi.seoul.go.kr:8088/${SEOUL_API_KEY}/json/OdblrDspsnCvntl/1/100/`);
+    // 전체 274개 한번에 가져오기
+    const apiUrl = encodeURIComponent(`http://openapi.seoul.go.kr:8088/${SEOUL_API_KEY}/json/OdblrDspsnCvntl/1/274/`);
     const res = await fetch(PROXY + apiUrl);
     const json = await res.json();
     const rows = json?.OdblrDspsnCvntl?.row || [];
@@ -450,7 +458,8 @@ async function loadAllFacilities() {
     loadSchoolFacilities(),
   ]);
 
-  const combined = [...subwayData, ...schoolData];
+  // 좌표 보정된 것만 사용
+  const combined = [...subwayData, ...schoolData].filter(f => f.lat !== 0 && f.lng !== 0);
 
   if (combined.length === 0) {
     loadSampleFacilities();
@@ -459,11 +468,17 @@ async function loadAllFacilities() {
     return;
   }
 
+  // 현재위치 있으면 가까운 순 정렬, 없으면 그대로
+  if(myMarker) {
+    const pos = myMarker.getPosition();
+    combined.sort((a,b) => Math.hypot(a.lat-pos.getLat(), a.lng-pos.getLng()) - Math.hypot(b.lat-pos.getLat(), b.lng-pos.getLng()));
+  }
+
   facilities = combined;
   addFacMarkers();
 
-  const subCount   = subwayData.length;
-  const schoolCount = schoolData.length;
+  const subCount = combined.filter(f=>f.category==='subway').length;
+  const schoolCount = combined.filter(f=>f.category==='school').length;
   statusEl.innerHTML = `✅ 지하철 ${subCount}곳 · 학교 ${schoolCount}곳 로드 완료`;
   setTimeout(()=>statusEl.style.display='none', 3000);
 }
