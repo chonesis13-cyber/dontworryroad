@@ -736,25 +736,66 @@ async function loadSchoolFacilities() {
   } catch(e) { dbg('❌ 학교 API 오류: '+e.message,'error'); return []; }
 }
 
+// ── 캐싱 유틸 ────────────────────────────────────────
+const CACHE_TTL = { facilities: 60*60*1000, shelter: 6*60*60*1000 }; // 1시간, 6시간
+
+function saveCache(key, data, ttl) {
+  try {
+    localStorage.setItem(key, JSON.stringify({ data, expires: Date.now() + ttl }));
+  } catch(e) { /* 저장 실패 무시 */ }
+}
+
+function loadCache(key) {
+  try {
+    const raw = localStorage.getItem(key);
+    if(!raw) return null;
+    const { data, expires } = JSON.parse(raw);
+    if(Date.now() > expires) { localStorage.removeItem(key); return null; }
+    return data;
+  } catch(e) { return null; }
+}
+
 async function loadAllFacilities() {
   const statusEl = document.getElementById('api-status');
-  statusEl.textContent = '🔄 편의시설 데이터 불러오는 중...';
   statusEl.style.display = 'block';
   dbg('🔄 시설 데이터 로드 시작');
 
   const season = getCurrentSeason();
-  dbg(`현재 계절: ${season}`);
 
-  // 계절별 쉼터 선택
+  // ── 캐시 확인 ──────────────────────────────────────
+  const cachedSubway  = loadCache('cache_subway');
+  const cachedElderly = loadCache('cache_elderly');
+  const cachedShelter = loadCache('cache_shelter_' + season);
+
+  if(cachedSubway && cachedElderly && cachedShelter) {
+    dbg('✅ 캐시에서 즉시 로드!');
+    statusEl.textContent = '⚡ 캐시에서 불러오는 중...';
+    const combined = [...cachedSubway, ...cachedElderly, ...cachedShelter]
+      .filter(f => f.lat !== 0 && f.lng !== 0);
+    facilities = combined;
+    addFacMarkers();
+    updateCountUI(combined, season);
+    setTimeout(()=>statusEl.style.display='none', 1500);
+    return;
+  }
+
+  // ── 캐시 없으면 API 호출 ───────────────────────────
+  statusEl.textContent = '🔄 편의시설 데이터 불러오는 중...';
+
   const shelterPromise = season === 'summer' ? loadHeatShelters()
                        : season === 'winter' ? loadColdShelters()
                        : Promise.all([loadHeatShelters(), loadColdShelters()]).then(([h,c])=>[...h,...c]);
 
   const [subwayData, elderlyData, shelterData] = await Promise.all([
-    loadSubwayFacilities(),
-    loadElderlyFacilities(),
-    shelterPromise,
+    cachedSubway  || loadSubwayFacilities(),
+    cachedElderly || loadElderlyFacilities(),
+    cachedShelter || shelterPromise,
   ]);
+
+  // 캐시 저장
+  if(!cachedSubway  && subwayData.length  > 0) saveCache('cache_subway',  subwayData,  CACHE_TTL.facilities);
+  if(!cachedElderly && elderlyData.length > 0) saveCache('cache_elderly', elderlyData, CACHE_TTL.facilities);
+  if(!cachedShelter && shelterData.length > 0) saveCache('cache_shelter_'+season, shelterData, CACHE_TTL.shelter);
 
   dbg(`지하철:${subwayData.length} 노인:${elderlyData.length} 쉼터:${shelterData.length}`);
 
@@ -776,23 +817,26 @@ async function loadAllFacilities() {
 
   facilities = combined;
   addFacMarkers();
+  updateCountUI(combined, season);
 
+  dbg(`✅ 총 ${combined.length}곳 로드 완료 (캐시 저장됨)`);
+  statusEl.innerHTML = `✅ 총 ${combined.length}곳 로드 완료 · 1시간 캐시 저장`;
+  setTimeout(()=>statusEl.style.display='none', 3000);
+}
+
+function updateCountUI(combined, season) {
   const subCount     = combined.filter(f=>f.category==='subway').length;
   const elderlyCount = combined.filter(f=>f.category==='elderly').length;
   const shelterCount = combined.filter(f=>f.category==='heat'||f.category==='cold').length;
-
   const cntSubway  = document.getElementById('cnt-subway');
   const cntElderly = document.getElementById('cnt-elderly');
   const cntShelter = document.getElementById('cnt-shelter');
   if(cntSubway)  cntSubway.textContent  = subCount + '곳';
   if(cntElderly) cntElderly.textContent = elderlyCount + '곳';
   if(cntShelter) cntShelter.textContent = shelterCount + '곳';
-
-  const shelterLabel = season==='summer'?'☀️ 무더위쉼터':season==='winter'?'🧊 한파쉼터':'☀️🧊 쉼터';
-  dbg(`✅ 총 ${combined.length}곳 로드 완료`);
-  statusEl.innerHTML = `✅ 지하철 ${subCount} · 노인 ${elderlyCount} · ${shelterLabel} ${shelterCount}곳 로드 완료`;
-  setTimeout(()=>statusEl.style.display='none', 3000);
 }
+
+
 
 function loadSampleFacilities() {
   facilities = [
