@@ -1311,17 +1311,17 @@ async function loadPeopleFlow() {
     const rows = json?.sDoTPeople?.row || [];
     if(rows.length === 0) return;
 
-    // 전체 센서 평균 유동인구 계산
-    const total = rows.reduce((s, r) => s + (parseFloat(r.PBLICTR_CO) || 0), 0);
-    const avg = total / rows.length;
+    // 전체 센서 유동인구 계산
+    const counts = rows.map(r => parseInt(r.VISITOR_COUNT) || 0);
+    const total = counts.reduce((s,v) => s+v, 0);
+    const avg = total / counts.length;
+    const maxVal = Math.max(...counts);
 
-    // 최대값 대비 혼잡도 % 계산
-    const maxVal = Math.max(...rows.map(r => parseFloat(r.PBLICTR_CO) || 0));
     currentCongestion = maxVal > 0 ? Math.round((avg / maxVal) * 100) : 0;
 
-    // 혼잡 TOP3 도로 추출
-    const top3 = rows
-      .sort((a, b) => (parseFloat(b.PBLICTR_CO)||0) - (parseFloat(a.PBLICTR_CO)||0))
+    // 혼잡 TOP3 — 자치구 + 행정동으로 표시
+    const top3 = [...rows]
+      .sort((a,b) => (parseInt(b.VISITOR_COUNT)||0) - (parseInt(a.VISITOR_COUNT)||0))
       .slice(0, 3);
 
     updateCongestionUI(currentCongestion, top3, rows.length);
@@ -1332,28 +1332,28 @@ async function loadPeopleFlow() {
 }
 
 function updateCongestionUI(congestion, top3, total) {
-  // 데이터현황 탭 유동인구 카드 업데이트
   const card = document.getElementById('cnt-people');
   if(card) {
     const color = congestion > 70 ? '#CC3300' : congestion > 45 ? '#FF8C00' : '#2E8B57';
     card.innerHTML = `<span style="color:${color};font-size:22px;font-weight:900;">↑${congestion}%</span>`;
   }
 
-  // 도로바 업데이트
   const roadBars = document.getElementById('road-bars');
   if(roadBars && top3.length > 0) {
+    const maxCount = parseInt(top3[0].VISITOR_COUNT) || 1;
     roadBars.innerHTML = top3.map(r => {
-      const val = parseFloat(r.PBLICTR_CO) || 0;
-      const pct = Math.round((val / (top3[0].PBLICTR_CO || 1)) * 100);
+      const val = parseInt(r.VISITOR_COUNT) || 0;
+      const pct = Math.round((val / maxCount) * 100);
       const c = pct > 70 ? '#CC3300' : pct > 45 ? '#FF8C00' : '#2E8B57';
+      const name = `${r.AUTONOMOUS_DISTRICT} ${r.ADMINISTRATIVE_DISTRICT}`;
       return `<div class="road-row">
         <div class="road-row-top">
-          <span>${r.TRDAR_NM || r.STDR_DE || '측정소'}</span>
-          <span style="color:${c};">${val.toFixed(0)}명</span>
+          <span>${name}</span>
+          <span style="color:${c};">${val.toLocaleString()}명</span>
         </div>
         <div class="road-bar-bg"><div class="road-bar" style="width:${pct}%;background:${c}"></div></div>
       </div>`;
-    }).join('') + `<div style="font-size:10px;color:var(--dim);margin-top:6px;">S-DoT 센서 ${total}개소 실시간 측정</div>`;
+    }).join('') + `<div style="font-size:10px;color:var(--dim);margin-top:6px;">S-DoT 센서 ${total}개소 실시간 측정 · ${top3[0]?.SENSING_TIME?.replace('_',' ')}</div>`;
   }
 }
 
