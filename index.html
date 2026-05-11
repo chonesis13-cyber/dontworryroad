@@ -1295,6 +1295,29 @@ function toggleMap(){
 })();
 
 // ── S-DoT 유동인구 실시간 API ─────────────────────────
+let peopleFlowData = []; // 전체 센서 데이터 저장
+
+// 영어 구 이름 → 한글 변환
+const GU_MAP = {
+  'Dobong-gu':'도봉구','Gangbuk-gu':'강북구','Nowon-gu':'노원구','Jungnang-gu':'중랑구',
+  'Dongdaemun-gu':'동대문구','Seongbuk-gu':'성북구','Jongno-gu':'종로구','Jung-gu':'중구',
+  'Mapo-gu':'마포구','Seodaemun-gu':'서대문구','Eunpyeong-gu':'은평구','Yangcheon-gu':'양천구',
+  'Gangseo-gu':'강서구','Guro-gu':'구로구','Geumcheon-gu':'금천구','Yeongdeungpo-gu':'영등포구',
+  'Dongjak-gu':'동작구','Gwanak-gu':'관악구','Seocho-gu':'서초구','Gangnam-gu':'강남구',
+  'Songpa-gu':'송파구','Gangdong-gu':'강동구','Gwangjin-gu':'광진구','Seongdong-gu':'성동구',
+  'Yongsan-gu':'용산구',
+};
+
+function toKoreanName(gu, dong) {
+  const guKor = GU_MAP[gu] || gu;
+  // 동 이름 간단 변환 (숫자+영어 패턴 처리)
+  const dongKor = dong
+    .replace('(il)-dong','1동').replace('(i)-dong','2동').replace('(sam)-dong','3동')
+    .replace('(sa)-dong','4동').replace('(o)-dong','5동').replace('(yuk)-dong','6동')
+    .replace('-dong','동').replace('-ga','가').replace('-ro','로');
+  return `${guKor} ${dongKor}`;
+}
+
 async function loadPeopleFlow() {
   try {
     const apiUrl = encodeURIComponent(`http://openapi.seoul.go.kr:8088/${PEOPLE_API_KEY}/json/sDoTPeople/1/100/`);
@@ -1303,50 +1326,91 @@ async function loadPeopleFlow() {
     const rows = json?.sDoTPeople?.row || [];
     if(rows.length === 0) return;
 
-    // 전체 센서 유동인구 계산
-    const counts = rows.map(r => parseInt(r.VISITOR_COUNT) || 0);
-    const total = counts.reduce((s,v) => s+v, 0);
-    const avg = total / counts.length;
-    const maxVal = Math.max(...counts);
+    peopleFlowData = rows; // 전체 데이터 저장
 
+    // 전체 평균 혼잡도
+    const counts = rows.map(r => parseInt(r.VISITOR_COUNT) || 0);
+    const avg = counts.reduce((s,v)=>s+v,0) / counts.length;
+    const maxVal = Math.max(...counts);
     currentCongestion = maxVal > 0 ? Math.round((avg / maxVal) * 100) : 0;
 
-    // 혼잡 TOP3 — 자치구 + 행정동으로 표시
-    const top3 = [...rows]
-      .sort((a,b) => (parseInt(b.VISITOR_COUNT)||0) - (parseInt(a.VISITOR_COUNT)||0))
-      .slice(0, 3);
-
-    updateCongestionUI(currentCongestion, top3, rows.length);
+    // 현재위치 있으면 가까운 순, 없으면 혼잡도 순
+    updateCongestionUI();
     dbg(`✅ 유동인구 ${rows.length}개 센서 · 혼잡도 ${currentCongestion}%`);
   } catch(e) {
     dbg('⚠ 유동인구 API 오류: ' + e.message, 'warn');
   }
 }
 
-function updateCongestionUI(congestion, top3, total) {
+function updateCongestionUI() {
+  if(peopleFlowData.length === 0) return;
+
   const card = document.getElementById('cnt-people');
   if(card) {
-    const color = congestion > 70 ? '#CC3300' : congestion > 45 ? '#FF8C00' : '#2E8B57';
-    card.innerHTML = `<span style="color:${color};font-size:22px;font-weight:900;">↑${congestion}%</span>`;
+    const color = currentCongestion > 70 ? '#CC3300' : currentCongestion > 45 ? '#FF8C00' : '#2E8B57';
+    card.innerHTML = `<span style="color:${color};font-size:22px;font-weight:900;">↑${currentCongestion}%</span>`;
   }
 
-  const roadBars = document.getElementById('road-bars');
-  if(roadBars && top3.length > 0) {
-    const maxCount = parseInt(top3[0].VISITOR_COUNT) || 1;
-    roadBars.innerHTML = top3.map(r => {
-      const val = parseInt(r.VISITOR_COUNT) || 0;
-      const pct = Math.round((val / maxCount) * 100);
-      const c = pct > 70 ? '#CC3300' : pct > 45 ? '#FF8C00' : '#2E8B57';
-      const name = `${r.AUTONOMOUS_DISTRICT} ${r.ADMINISTRATIVE_DISTRICT}`;
-      return `<div class="road-row">
-        <div class="road-row-top">
-          <span>${name}</span>
-          <span style="color:${c};">${val.toLocaleString()}명</span>
-        </div>
-        <div class="road-bar-bg"><div class="road-bar" style="width:${pct}%;background:${c}"></div></div>
-      </div>`;
-    }).join('') + `<div style="font-size:10px;color:var(--dim);margin-top:6px;">S-DoT 센서 ${total}개소 실시간 측정 · ${top3[0]?.SENSING_TIME?.replace('_',' ')}</div>`;
+  // 현재위치 기준 가까운 센서 찾기 (위치 없으면 혼잡 순)
+  let sorted;
+  if(myMarker) {
+    const pos = myMarker.getPosition();
+    const myLat = pos.getLat(), myLng = pos.getLng();
+    // S-DoT 데이터엔 좌표 없어서 구 이름으로 현재 구 우선 표시
+    const myGu = getNearestGu(myLat, myLng);
+    sorted = [...peopleFlowData].sort((a,b) => {
+      const aInGu = a.AUTONOMOUS_DISTRICT.includes(myGu) ? -1 : 1;
+      const bInGu = b.AUTONOMOUS_DISTRICT.includes(myGu) ? -1 : 1;
+      if(aInGu !== bInGu) return aInGu - bInGu;
+      return (parseInt(b.VISITOR_COUNT)||0) - (parseInt(a.VISITOR_COUNT)||0);
+    });
+  } else {
+    sorted = [...peopleFlowData].sort((a,b) =>
+      (parseInt(b.VISITOR_COUNT)||0) - (parseInt(a.VISITOR_COUNT)||0));
   }
+
+  const top3 = sorted.slice(0, 3);
+  const maxCount = Math.max(...top3.map(r => parseInt(r.VISITOR_COUNT)||0)) || 1;
+  const roadBars = document.getElementById('road-bars');
+  if(roadBars) {
+    const locLabel = myMarker ? '📍 현재위치 주변' : '서울 전체';
+    roadBars.innerHTML = `<div style="font-size:11px;color:var(--safe);font-weight:700;margin-bottom:8px;">${locLabel} 혼잡 TOP3</div>` +
+      top3.map(r => {
+        const val = parseInt(r.VISITOR_COUNT) || 0;
+        const pct = Math.round((val / maxCount) * 100);
+        const c = pct > 70 ? '#CC3300' : pct > 45 ? '#FF8C00' : '#2E8B57';
+        const name = toKoreanName(r.AUTONOMOUS_DISTRICT, r.ADMINISTRATIVE_DISTRICT);
+        return `<div class="road-row">
+          <div class="road-row-top">
+            <span>${name}</span>
+            <span style="color:${c};">${val.toLocaleString()}명</span>
+          </div>
+          <div class="road-bar-bg"><div class="road-bar" style="width:${pct}%;background:${c}"></div></div>
+        </div>`;
+      }).join('') +
+      `<div style="font-size:10px;color:var(--dim);margin-top:6px;">S-DoT 센서 ${peopleFlowData.length}개소 · ${top3[0]?.SENSING_TIME?.replace('_',' ')}</div>`;
+  }
+}
+
+// 현재위치 좌표 → 가장 가까운 구 이름 (영어) 반환
+function getNearestGu(lat, lng) {
+  const guCoords = {
+    'Dobong-gu':[37.6688,127.0471],'Gangbuk-gu':[37.6396,127.0257],'Nowon-gu':[37.6542,127.0568],
+    'Jungnang-gu':[37.6066,127.0930],'Dongdaemun-gu':[37.5744,127.0396],'Seongbuk-gu':[37.5894,127.0167],
+    'Jongno-gu':[37.5730,126.9794],'Jung-gu':[37.5641,126.9975],'Mapo-gu':[37.5664,126.9014],
+    'Seodaemun-gu':[37.5791,126.9368],'Eunpyeong-gu':[37.6176,126.9227],'Yangcheon-gu':[37.5170,126.8665],
+    'Gangseo-gu':[37.5509,126.8495],'Guro-gu':[37.4954,126.8874],'Geumcheon-gu':[37.4600,126.9001],
+    'Yeongdeungpo-gu':[37.5264,126.8963],'Dongjak-gu':[37.5124,126.9393],'Gwanak-gu':[37.4784,126.9516],
+    'Seocho-gu':[37.4836,127.0327],'Gangnam-gu':[37.5172,127.0473],'Songpa-gu':[37.5145,127.1059],
+    'Gangdong-gu':[37.5492,127.1465],'Gwangjin-gu':[37.5385,127.0823],'Seongdong-gu':[37.5633,127.0371],
+    'Yongsan-gu':[37.5322,126.9904],
+  };
+  let minDist = Infinity, nearest = 'Jung-gu';
+  Object.entries(guCoords).forEach(([gu,[gLat,gLng]])=>{
+    const d = Math.hypot(lat-gLat, lng-gLng);
+    if(d < minDist){ minDist=d; nearest=gu; }
+  });
+  return nearest;
 }
 
 // ── 강우량 실시간 API ─────────────────────────────────
@@ -1464,6 +1528,8 @@ function locateMe(){
     myCircle=new kakao.maps.Circle({center:ll,radius:acc,strokeWeight:1,strokeColor:'#FF8C00',strokeOpacity:.4,fillColor:'#FF8C00',fillOpacity:.07});
     myCircle.setMap(map);
     map.panTo(ll);map.setLevel(4);
+    // 현재위치 기준 유동인구 현황 업데이트
+    if(peopleFlowData.length > 0) updateCongestionUI();
     let md=Infinity,near=null;
     facilities.forEach(f=>{const d=Math.hypot(f.lat-lat,f.lng-lng);if(d<md){md=d;near=f;}});
     document.getElementById('loc-bar-text').innerHTML=`<strong>현재위치 확인됨</strong> · 정확도 ${acc}m<br>가장 가까운 시설: <strong>${near.label} ${near.name}</strong> (약 ${Math.round(md*111000)}m)`;
