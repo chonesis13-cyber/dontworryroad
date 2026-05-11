@@ -685,25 +685,17 @@ async function addrToCoords(items) {
 
 async function loadElderlyFacilities() {
   try {
-    const apis = [
-      { key: ELDERLY_ROWI_KEY, svc: 'fcltOpenInfo_ROWI', subtype: '재가노인복지시설', label: '🏠', color: '#7B5EA7' },
-      { key: ELDERLY_OMI_KEY,  svc: 'fcltOpenInfo_OMI',  subtype: '노인의료복지시설', label: '🏥', color: '#C0622A' },
-      { key: ELDERLY_OLWI_KEY, svc: 'fcltOpenInfo_OLWI', subtype: '노인주거복지시설', label: '🏡', color: '#A0775A' },
-    ];
-    const allRows = await Promise.all(apis.map(async ({key, svc, subtype, label, color}) => {
-      try {
-        const apiUrl = encodeURIComponent(`http://openapi.seoul.go.kr:8088/${key}/json/${svc}/1/50/`);
-        const res = await fetch(PROXY + apiUrl);
-        const json = await res.json();
-        const rows = json?.[svc]?.row || [];
-        return rows.map(item => parseElderlyFacility(item, subtype, label, color));
-      } catch(e) { return []; }
-    }));
-    const combined = allRows.flat();
-    // 주소 기반 좌표 보정
-    const enriched = await addrToCoords(combined);
+    // 노인주거복지시설만 사용 (노인복지관·경로당 포함)
+    // 재가노인·노인의료는 대피장소 부적합으로 제외
+    const apiUrl = encodeURIComponent(`http://openapi.seoul.go.kr:8088/${ELDERLY_OLWI_KEY}/json/fcltOpenInfo_OLWI/1/50/`);
+    const res = await fetch(PROXY + apiUrl);
+    const json = await res.json();
+    const rows = json?.fcltOpenInfo_OLWI?.row || [];
+    dbg(`노인주거복지시설 raw: ${rows.length}건`);
+    const parsed = rows.map(item => parseElderlyFacility(item, '노인복지관·경로당', '🏠', '#7B5EA7'));
+    const enriched = await addrToCoords(parsed);
     return enriched.filter(f => f.lat !== 0 && f.lng !== 0);
-  } catch(e) { return []; }
+  } catch(e) { dbg('⚠ 노인시설 오류: '+e.message,'warn'); return []; }
 }
 
 async function loadSubwayFacilities() {
@@ -741,16 +733,16 @@ const CACHE_TTL = { facilities: 60*60*1000, shelter: 6*60*60*1000 }; // 1시간,
 
 function saveCache(key, data, ttl) {
   try {
-    localStorage.setItem(key, JSON.stringify({ data, expires: Date.now() + ttl }));
+    localStorage.setItem('v2_'+key, JSON.stringify({ data, expires: Date.now() + ttl }));
   } catch(e) { /* 저장 실패 무시 */ }
 }
 
 function loadCache(key) {
   try {
-    const raw = localStorage.getItem(key);
+    const raw = localStorage.getItem('v2_'+key);
     if(!raw) return null;
     const { data, expires } = JSON.parse(raw);
-    if(Date.now() > expires) { localStorage.removeItem(key); return null; }
+    if(Date.now() > expires) { localStorage.removeItem('v2_'+key); return null; }
     return data;
   } catch(e) { return null; }
 }
