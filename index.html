@@ -1465,55 +1465,61 @@ function showPeopleMarkersOnMap(top3) {
     const name = toKoreanName(r.AUTONOMOUS_DISTRICT, r.ADMINISTRATIVE_DISTRICT);
     const val = parseInt(r.VISITOR_COUNT) || 0;
     const color = i === 0 ? '#CC3300' : i === 1 ? '#FF8C00' : '#E6B800';
-    const guKor = GU_MAP[r.AUTONOMOUS_DISTRICT] || r.AUTONOMOUS_DISTRICT;
 
-    // 구 이름으로만 검색해서 중심 좌표 찾기
-    ps.keywordSearch(guKor, (res, status) => {
-      if(status !== kakao.maps.services.Status.OK || !res[0]) return;
-      const lat = parseFloat(res[0].y);
-      const lng = parseFloat(res[0].x);
-      const ll = new kakao.maps.LatLng(lat, lng);
-
-      const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='56' height='56'>
-        <circle cx='28' cy='28' r='26' fill='${color}' opacity='0.9'/>
-        <circle cx='28' cy='28' r='26' fill='none' stroke='white' stroke-width='2.5'/>
-        <text x='28' y='19' text-anchor='middle' font-size='9' fill='white' font-weight='bold'>유동인구</text>
-        <text x='28' y='32' text-anchor='middle' font-size='13' fill='white' font-weight='bold'>${val}</text>
-        <text x='28' y='43' text-anchor='middle' font-size='9' fill='white'>명</text>
-      </svg>`;
-
-      const m = new kakao.maps.Marker({
-        position: ll,
-        image: new kakao.maps.MarkerImage(
-          'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svg))),
-          new kakao.maps.Size(56,56),
-          { offset: new kakao.maps.Point(28,28) }
-        ),
-        title: `${name} ${val}명`,
-      });
-      m.setMap(map);
-
-      const iw = new kakao.maps.InfoWindow({
-        content: `<div style="padding:7px 12px;font-size:12px;font-weight:700;background:#FFF;color:#2F4F4F;border-radius:8px;border:2px solid ${color};">🚶 ${name}<br><span style="color:${color};">유동인구 ${val.toLocaleString()}명</span></div>`,
-        removable: true,
-      });
-      kakao.maps.event.addListener(m, 'click', () => iw.open(map, m));
-      peopleMarkers.push(m);
+    // 동 주민센터로 정확한 좌표 검색
+    const searchQuery = name + ' 주민센터';
+    ps.keywordSearch(searchQuery, (res, status) => {
+      if(status !== kakao.maps.services.Status.OK || !res[0]) {
+        // 주민센터 못 찾으면 동 이름으로만 검색
+        ps.keywordSearch(name, (res2, status2) => {
+          if(status2 === kakao.maps.services.Status.OK && res2[0]) {
+            placeFlowMarker(res2[0], name, val, color);
+          }
+        }, {size:1});
+        return;
+      }
+      placeFlowMarker(res[0], name, val, color);
     }, { size: 1 });
   });
 }
 
+function placeFlowMarker(place, name, val, color) {
+  const ll = new kakao.maps.LatLng(parseFloat(place.y), parseFloat(place.x));
+  const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='56' height='56'>
+    <circle cx='28' cy='28' r='26' fill='${color}' opacity='0.9'/>
+    <circle cx='28' cy='28' r='26' fill='none' stroke='white' stroke-width='2.5'/>
+    <text x='28' y='19' text-anchor='middle' font-size='9' fill='white' font-weight='bold'>유동인구</text>
+    <text x='28' y='32' text-anchor='middle' font-size='13' fill='white' font-weight='bold'>${val}</text>
+    <text x='28' y='43' text-anchor='middle' font-size='9' fill='white'>명</text>
+  </svg>`;
+  const m = new kakao.maps.Marker({
+    position: ll,
+    image: new kakao.maps.MarkerImage(
+      'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svg))),
+      new kakao.maps.Size(56,56), { offset: new kakao.maps.Point(28,28) }
+    ),
+    title: `${name} ${val}명`,
+  });
+  m.setMap(map);
+  const iw = new kakao.maps.InfoWindow({
+    content: `<div style="padding:7px 12px;font-size:12px;font-weight:700;background:#FFF;color:#2F4F4F;border-radius:8px;border:2px solid ${color};">🚶 ${name}<br><span style="color:${color};">유동인구 ${val.toLocaleString()}명</span></div>`,
+    removable: true,
+  });
+  kakao.maps.event.addListener(m, 'click', () => iw.open(map, m));
+  peopleMarkers.push(m);
+}
+
 function focusPeopleArea(gu, dong) {
   const name = toKoreanName(gu, dong);
-  const guKor = GU_MAP[gu] || gu;
+  const searchQuery = name + ' 주민센터';
 
-  // 구 이름으로 검색 후 지도 이동
-  ps.keywordSearch(guKor, (res, status) => {
-    if(status === kakao.maps.services.Status.OK && res[0]) {
-      map.panTo(new kakao.maps.LatLng(parseFloat(res[0].y), parseFloat(res[0].x)));
-      map.setLevel(6);
+  ps.keywordSearch(searchQuery, (res, status) => {
+    const target = (status === kakao.maps.services.Status.OK && res[0]) ? res[0] : null;
 
-      // 대피루트 탭으로 이동
+    const moveTo = (place) => {
+      map.panTo(new kakao.maps.LatLng(parseFloat(place.y), parseFloat(place.x)));
+      map.setLevel(5);
+      // 대피루트 탭으로 전환
       document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
       document.querySelector('.tab').classList.add('active');
       ['route','data','facility'].forEach(t=>{
@@ -1521,12 +1527,20 @@ function focusPeopleArea(gu, dong) {
       });
       document.getElementById('map').style.height='220px';
       kakao.maps.event.trigger(map,'resize');
-
-      // 해당 마커 인포윈도우 자동 열기
+      // 해당 마커 인포윈도우 열기
       setTimeout(()=>{
-        const target = peopleMarkers.find(m => m.getTitle().includes(guKor));
-        if(target) kakao.maps.event.trigger(target, 'click');
-      }, 500);
+        const m = peopleMarkers.find(mk => mk.getTitle().includes(name.split(' ')[1]||name));
+        if(m) kakao.maps.event.trigger(m, 'click');
+      }, 600);
+    };
+
+    if(target) {
+      moveTo(target);
+    } else {
+      // 주민센터 없으면 동 이름으로 재검색
+      ps.keywordSearch(name, (res2, status2) => {
+        if(status2 === kakao.maps.services.Status.OK && res2[0]) moveTo(res2[0]);
+      }, {size:1});
     }
   }, { size: 1 });
 }
