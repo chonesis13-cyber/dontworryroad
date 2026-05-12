@@ -868,6 +868,10 @@ window.addEventListener('load',()=>{
   setInterval(loadRainfall,    5 * 60 * 1000);
   setInterval(loadPeopleFlow,  5 * 60 * 1000);
   setInterval(loadTemperature, 30 * 60 * 1000);
+  // 지도 이동 시 유동인구 자동 업데이트
+  kakao.maps.event.addListener(map, 'dragend', updatePeopleByMapCenter);
+  kakao.maps.event.addListener(map, 'zoom_changed', updatePeopleByMapCenter);
+
   setTimeout(()=>{ map.relayout(); kakao.maps.event.trigger(map,'resize'); }, 100);
   setTimeout(()=>{ map.relayout(); kakao.maps.event.trigger(map,'resize'); }, 500);
 });
@@ -1318,6 +1322,62 @@ function toggleMap(){
   document.addEventListener('mouseup',onEnd);
   document.addEventListener('touchend',onEnd);
 })();
+
+// ── 지도 중심 기준 유동인구 업데이트 ─────────────────
+let mapMoveTimer = null;
+function updatePeopleByMapCenter() {
+  if(peopleFlowData.length === 0) return;
+  // 너무 자주 호출 방지 (500ms 딜레이)
+  clearTimeout(mapMoveTimer);
+  mapMoveTimer = setTimeout(() => {
+    const center = map.getCenter();
+    const cLat = center.getLat();
+    const cLng = center.getLng();
+
+    // 지도 중심에서 가장 가까운 구 찾기
+    const nearestGu = getNearestGu(cLat, cLng);
+    const guKor = GU_MAP[nearestGu] || nearestGu;
+
+    // 해당 구 센서 우선 + 혼잡 순 정렬
+    const sorted = [...peopleFlowData].sort((a, b) => {
+      const aInGu = a.AUTONOMOUS_DISTRICT === nearestGu ? -1 : 1;
+      const bInGu = b.AUTONOMOUS_DISTRICT === nearestGu ? -1 : 1;
+      if(aInGu !== bInGu) return aInGu - bInGu;
+      return (parseInt(b.VISITOR_COUNT)||0) - (parseInt(a.VISITOR_COUNT)||0);
+    });
+
+    const top3 = sorted.slice(0, 3);
+    const maxCount = Math.max(...top3.map(r => parseInt(r.VISITOR_COUNT)||0)) || 1;
+
+    // 도로별 유동인구 현황 업데이트
+    const roadBars = document.getElementById('road-bars');
+    if(roadBars) {
+      roadBars.innerHTML =
+        `<div style="font-size:11px;color:var(--safe);font-weight:700;margin-bottom:8px;">🗺 ${guKor} 주변 혼잡 TOP3</div>` +
+        top3.map((r, i) => {
+          const val = parseInt(r.VISITOR_COUNT) || 0;
+          const pct = Math.round((val / maxCount) * 100);
+          const c = pct > 70 ? '#CC3300' : pct > 45 ? '#FF8C00' : '#2E8B57';
+          const name = toKoreanName(r.AUTONOMOUS_DISTRICT, r.ADMINISTRATIVE_DISTRICT);
+          return `<div class="road-row" onclick="focusPeopleArea('${r.AUTONOMOUS_DISTRICT}','${r.ADMINISTRATIVE_DISTRICT}')"
+            style="cursor:pointer;padding:8px;border-radius:10px;transition:background .15s;"
+            onmouseover="this.style.background='#FFF3E0'" onmouseout="this.style.background='none'">
+            <div class="road-row-top">
+              <span>📍 ${name}</span>
+              <span style="color:${c};">${val.toLocaleString()}명</span>
+            </div>
+            <div class="road-bar-bg"><div class="road-bar" style="width:${pct}%;background:${c}"></div></div>
+          </div>`;
+        }).join('') +
+        `<div style="font-size:10px;color:var(--dim);margin-top:6px;">
+          🗺 지도 이동 시 자동 갱신 · ${top3[0]?.SENSING_TIME?.replace('_',' ')}
+        </div>`;
+
+      // 지도에 마커도 업데이트
+      showPeopleMarkersOnMap(top3);
+    }
+  }, 500);
+}
 
 // ── S-DoT 유동인구 실시간 API ─────────────────────────
 let peopleFlowData = []; // 전체 센서 데이터 저장
