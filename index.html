@@ -1308,15 +1308,6 @@ const GU_MAP = {
   'Yongsan-gu':'용산구',
 };
 
-function toKoreanName(gu, dong) {
-  const guKor = GU_MAP[gu] || gu;
-  // 동 이름 간단 변환 (숫자+영어 패턴 처리)
-  const dongKor = dong
-    .replace('(il)-dong','1동').replace('(i)-dong','2동').replace('(sam)-dong','3동')
-    .replace('(sa)-dong','4동').replace('(o)-dong','5동').replace('(yuk)-dong','6동')
-    .replace('-dong','동').replace('-ga','가').replace('-ro','로');
-  return `${guKor} ${dongKor}`;
-}
 
 async function loadPeopleFlow() {
   try {
@@ -1375,21 +1366,134 @@ function updateCongestionUI() {
   if(roadBars) {
     const locLabel = myMarker ? '📍 현재위치 주변' : '서울 전체';
     roadBars.innerHTML = `<div style="font-size:11px;color:var(--safe);font-weight:700;margin-bottom:8px;">${locLabel} 혼잡 TOP3</div>` +
-      top3.map(r => {
+      top3.map((r,i) => {
         const val = parseInt(r.VISITOR_COUNT) || 0;
         const pct = Math.round((val / maxCount) * 100);
         const c = pct > 70 ? '#CC3300' : pct > 45 ? '#FF8C00' : '#2E8B57';
         const name = toKoreanName(r.AUTONOMOUS_DISTRICT, r.ADMINISTRATIVE_DISTRICT);
-        return `<div class="road-row">
+        return `<div class="road-row" onclick="focusPeopleArea('${r.AUTONOMOUS_DISTRICT}','${r.ADMINISTRATIVE_DISTRICT}')" style="cursor:pointer;padding:8px;border-radius:10px;transition:background .15s;" onmouseover="this.style.background='#FFF3E0'" onmouseout="this.style.background='none'">
           <div class="road-row-top">
-            <span>${name}</span>
+            <span>📍 ${name}</span>
             <span style="color:${c};">${val.toLocaleString()}명</span>
           </div>
           <div class="road-bar-bg"><div class="road-bar" style="width:${pct}%;background:${c}"></div></div>
         </div>`;
       }).join('') +
-      `<div style="font-size:10px;color:var(--dim);margin-top:6px;">S-DoT 센서 ${peopleFlowData.length}개소 · ${top3[0]?.SENSING_TIME?.replace('_',' ')}</div>`;
+      `<div style="font-size:10px;color:var(--dim);margin-top:6px;">S-DoT 센서 ${peopleFlowData.length}개소 · ${top3[0]?.SENSING_TIME?.replace('_',' ')} · 터치하면 지도로 이동</div>`;
+
+    // 지도에 유동인구 마커 표시
+    showPeopleMarkersOnMap(top3);
   }
+}
+
+let peopleMarkers = []; // 유동인구 마커
+
+// 동 이름 완전 한글화
+const DONG_MAP = {
+  'Mia':'미아','Suyu':'수유','Dobong':'도봉','Chang':'창','Gongneung':'공릉',
+  'Wolgye':'월계','Junggye':'중계','Sanggye':'상계','Nowon':'노원','Hwarang':'화랑',
+  'Mangwon':'망원','Hapjeong':'합정','Seogyo':'서교','Yeonnam':'연남','Mapo':'마포',
+  'Sinchon':'신촌','Hongje':'홍제','Bulgwang':'불광','Yeonsinnae':'연신내',
+  'Sinwol':'신월','Mok':'목','Yangcheon':'양천','Gangseo':'강서','Hwagok':'화곡',
+  'Guro':'구로','Gaebong':'개봉','Oryu':'오류','Gasan':'가산','Doksan':'독산',
+  'Yeongdeungpo':'영등포','Daerim':'대림','Sindorim':'신도림','Noryangjin':'노량진',
+  'Sangdo':'상도','Dongjak':'동작','Sillim':'신림','Bongcheon':'봉천','Nakseongdae':'낙성대',
+  'Seocho':'서초','Banpo':'반포','Bangbae':'방배','Yangjae':'양재','Dogok':'도곡',
+  'Daechi':'대치','Apgujeong':'압구정','Cheongdam':'청담','Nonhyeon':'논현','Yeoksam':'역삼',
+  'Samsung':'삼성','Sinsa':'신사','Bangi':'방이','Songpa':'송파','Jamsil':'잠실',
+  'Garak':'가락','Munjeong':'문정','Macheon':'마천','Geodong':'거여','Gamdong':'감일',
+  'Cheonho':'천호','Amsa':'암사','Myeongil':'명일','Godeok':'고덕','Gangil':'강일',
+  'Gwangjang':'광장','Jayang':'자양','Guui':'구의','Hwayang':'화양','Neungdong':'능동',
+  'Haengdang':'행당','Wangsimni':'왕십리','Eungbong':'응봉','Oksu':'옥수',
+  'Hannam':'한남','Ichon':'이촌','Huam':'후암','Yongsan':'용산','Wonhyo':'원효',
+  'Jongno':'종로','Samcheong':'삼청','Hyehwa':'혜화','Changsin':'창신','Sungin':'숭인',
+  'Jungnim':'중림','Hwanghak':'황학','Sindang':'신당','Dasan':'다산','Yaksu':'약수',
+  'Seongbuk':'성북','Junggyeong':'정릉','Gireum':'길음','Wolgok':'월곡','Jongam':'종암',
+  'Anam':'안암','Jeongneung':'정릉','Ui':'우이','Suraksan':'수락산',
+};
+
+function toKoreanName(gu, dong) {
+  const guKor = GU_MAP[gu] || gu;
+  let dongKor = dong
+    // 숫자(한글) 패턴 — 앞 숫자와 붙지 않도록 순서 주의
+    .replace(/1\(il\)/g,'1').replace(/2\(i\)/g,'2').replace(/3\(sam\)/g,'3')
+    .replace(/4\(sa\)/g,'4').replace(/5\(o\)/g,'5').replace(/6\(yuk\)/g,'6')
+    .replace(/7\(chil\)/g,'7').replace(/8\(pal\)/g,'8').replace(/9\(gu\)/g,'9')
+    // 숫자 없이 단독으로 쓰인 경우
+    .replace(/\(il\)/g,'1').replace(/\(i\)/g,'2').replace(/\(sam\)/g,'3')
+    .replace(/\(sa\)/g,'4').replace(/\(o\)/g,'5').replace(/\(yuk\)/g,'6')
+    .replace(/\(chil\)/g,'7').replace(/\(pal\)/g,'8').replace(/\(gu\)/g,'9')
+    .replace(/-dong$/,'동').replace(/-ga$/,'가').replace(/-ro$/,'로');
+
+  // 영어 동 이름 한글로 (앞부분만 매칭)
+  Object.entries(DONG_MAP).forEach(([eng,kor])=>{
+    dongKor = dongKor.replace(new RegExp('^'+eng,'i'), kor);
+  });
+  return `${guKor} ${dongKor}`;
+}
+
+function showPeopleMarkersOnMap(top3) {
+  // 기존 유동인구 마커 제거
+  peopleMarkers.forEach(m => m.setMap(null));
+  peopleMarkers = [];
+
+  top3.forEach((r, i) => {
+    const name = toKoreanName(r.AUTONOMOUS_DISTRICT, r.ADMINISTRATIVE_DISTRICT);
+    const val = parseInt(r.VISITOR_COUNT) || 0;
+    const color = i === 0 ? '#CC3300' : i === 1 ? '#FF8C00' : '#E6B800';
+
+    // 행정동 이름으로 카카오 검색해서 좌표 찾기
+    ps.keywordSearch(name + ' 행정복지센터', (res, status) => {
+      if(status !== kakao.maps.services.Status.OK || !res[0]) return;
+      const lat = parseFloat(res[0].y);
+      const lng = parseFloat(res[0].x);
+      const ll = new kakao.maps.LatLng(lat, lng);
+
+      const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='52' height='52'>
+        <circle cx='26' cy='26' r='24' fill='${color}' opacity='0.85'/>
+        <circle cx='26' cy='26' r='24' fill='none' stroke='white' stroke-width='2'/>
+        <text x='26' y='18' text-anchor='middle' font-size='9' fill='white' font-weight='bold'>유동</text>
+        <text x='26' y='30' text-anchor='middle' font-size='12' fill='white' font-weight='bold'>${val}</text>
+        <text x='26' y='42' text-anchor='middle' font-size='8' fill='white'>명</text>
+      </svg>`;
+
+      const m = new kakao.maps.Marker({
+        position: ll,
+        image: new kakao.maps.MarkerImage(
+          'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svg))),
+          new kakao.maps.Size(52,52),
+          { offset: new kakao.maps.Point(26,26) }
+        ),
+        title: `${name} ${val}명`,
+      });
+      m.setMap(map);
+
+      const iw = new kakao.maps.InfoWindow({
+        content: `<div style="padding:7px 12px;font-size:12px;font-weight:700;background:#FFF;color:#2F4F4F;border-radius:8px;border:2px solid ${color};">🚶 ${name}<br><span style="color:${color};">유동인구 ${val.toLocaleString()}명</span></div>`,
+        removable: true,
+      });
+      kakao.maps.event.addListener(m, 'click', () => iw.open(map, m));
+      peopleMarkers.push(m);
+    }, { size: 1 });
+  });
+}
+
+function focusPeopleArea(gu, dong) {
+  const name = toKoreanName(gu, dong);
+  ps.keywordSearch(name + ' 행정복지센터', (res, status) => {
+    if(status === kakao.maps.services.Status.OK && res[0]) {
+      map.panTo(new kakao.maps.LatLng(parseFloat(res[0].y), parseFloat(res[0].x)));
+      map.setLevel(5);
+      // 데이터현황 탭에서 대피루트 탭으로 이동
+      document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+      document.querySelector('.tab').classList.add('active');
+      ['route','data','facility'].forEach(t=>{
+        document.getElementById('tab-'+t).style.display=t==='route'?'block':'none';
+      });
+      document.getElementById('map').style.height='220px';
+      kakao.maps.event.trigger(map,'resize');
+    }
+  }, { size: 1 });
 }
 
 // 현재위치 좌표 → 가장 가까운 구 이름 (영어) 반환
